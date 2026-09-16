@@ -1,6 +1,7 @@
 package com.proyecto.servicios.service.Impl;
 
-import com.proyecto.servicios.client.ProductListClient;
+import com.proyecto.servicios.client.GestoPagoProductListClient;
+import com.proyecto.servicios.exception.GestoPagoTokenNoDisponibleException;
 import com.proyecto.servicios.exception.ProductListAuthenticationException;
 import com.proyecto.servicios.exception.ProductListCommunicationException;
 import com.proyecto.servicios.exception.ProductListTimeoutException;
@@ -32,7 +33,7 @@ import static org.mockito.Mockito.when;
 class ProductListServiceImplTest {
 
     @Mock
-    private ProductListClient productListClient;
+    private GestoPagoProductListClient productListClient;
 
     @Mock
     private ProductoMapper productoMapper;
@@ -74,6 +75,15 @@ class ProductListServiceImplTest {
         List<ProductoResponse> resultado = productListService.obtenerListaProductos();
 
         assertThat(resultado).isEmpty();
+    }
+
+    @Test
+    void obtenerListaProductos_sinTokenGestoPagoDisponible_lanzaProductListAuthenticationException() {
+        when(productListClient.getProductList())
+                .thenThrow(new GestoPagoTokenNoDisponibleException("No hay un token GestoPago activo"));
+
+        assertThatThrownBy(() -> productListService.obtenerListaProductos())
+                .isInstanceOf(ProductListAuthenticationException.class);
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.proyecto.servicios.service.Impl;
 
-import com.proyecto.servicios.client.ProductListClient;
+import com.proyecto.servicios.client.GestoPagoProductListClient;
+import com.proyecto.servicios.exception.GestoPagoTokenNoDisponibleException;
 import com.proyecto.servicios.exception.ProductListAuthenticationException;
 import com.proyecto.servicios.exception.ProductListCommunicationException;
 import com.proyecto.servicios.exception.ProductListTimeoutException;
@@ -21,10 +22,10 @@ import java.util.Optional;
 @Slf4j
 public class ProductListServiceImpl implements ProductListService {
 
-    private final ProductListClient productListClient;
+    private final GestoPagoProductListClient productListClient;
     private final ProductoMapper productoMapper;
 
-    public ProductListServiceImpl(ProductListClient productListClient, ProductoMapper productoMapper) {
+    public ProductListServiceImpl(GestoPagoProductListClient productListClient, ProductoMapper productoMapper) {
         this.productListClient = productListClient;
         this.productoMapper = productoMapper;
     }
@@ -46,6 +47,11 @@ public class ProductListServiceImpl implements ProductListService {
                     .map(ProductListApiResponse::getProductos)
                     .map(productoMapper::toResponseList)
                     .orElseGet(List::of);
+
+        } catch (GestoPagoTokenNoDisponibleException e) {
+            log.error("No hay token GestoPago disponible para consultar la lista de productos: {}", e.getMessage());
+            throw new ProductListAuthenticationException(
+                    "No hay un token GestoPago activo para consultar la lista de productos", e);
 
         } catch (FeignException.Unauthorized | FeignException.Forbidden e) {
             log.error("El servicio externo de productos rechazo la autenticacion: status={}", e.status());
