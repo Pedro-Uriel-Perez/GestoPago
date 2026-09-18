@@ -28,29 +28,12 @@ src/main/java/com/proyecto/servicios/
 └── service/      Lógica de negocio (interfaces + Impl)
 ```
 
-## Configuración necesaria
-
-La app requiere las siguientes propiedades (vía variables de entorno o
-`application.properties` local, **nunca committeadas**):
-
-| Propiedad | Descripción |
-|---|---|
-| `spring.datasource.url` / `username` / `password` | Conexión a PostgreSQL |
-| `gestopago.auth.url` | Host del servicio externo GestoPago |
-| `gestopago.auth.id-distribuidor` | Distribuidor asignado por GestoPago |
-| `gestopago.auth.codigo-dispositivo` | Código de dispositivo asignado |
-| `gestopago.auth.password` | Contraseña asignada por GestoPago |
-
-El Bearer Token usado para consumir GestoPago **no se configura manualmente**:
-se obtiene y renueva automáticamente (`GestoPagoTokenServiceImpl`, tarea
-programada) y se reutiliza para todas las llamadas al proveedor.
 
 ## Compilar y correr pruebas
 
 ```bash
 ./gradlew build        # compila y corre las pruebas
 ./gradlew test         # solo pruebas unitarias
-./gradlew bootRun       # levanta la aplicación (requiere la configuración de arriba)
 ```
 
 Reporte de pruebas: `build/reports/tests/test/index.html`
