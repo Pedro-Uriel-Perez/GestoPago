@@ -75,7 +75,3 @@ unitarias con escenarios de éxito y de error.
 Documentación técnica detallada (arquitectura, decisiones y supuestos):
 [`docs/product-list-integration.md`](docs/product-list-integration.md)
 
-## Flujo de trabajo
-
-Los cambios se desarrollan en ramas `feature/*` y se integran a `main`
-mediante Pull Request.
