@@ -45,15 +45,17 @@ Reporte de pruebas: `build/reports/tests/test/index.html`
 | POST | `/personas` | Crea una persona |
 | PUT | `/personasActualiza` | Actualiza una persona existente |
 | PUT | `/personasElimina` | Elimina una persona |
-| GET | `/productos` | Consulta la lista de productos vía GestoPago |
+| GET | `/productos` | Consulta el catálogo de productos (cache local, sincronizado a diario con GestoPago) |
 
-## Integración con GestoPago: lista de productos
+## Integración con GestoPago: catálogo de productos
 
-La consulta `GET /productos` consume `GET /sistema/service/getProductList.do`
-del servicio externo GestoPago, reutilizando el mismo host y el mismo token
-que ya usa la autenticación existente. Incluye manejo de errores tipado
-(autenticación, timeout, respuesta no exitosa, comunicación) y pruebas
-unitarias con escenarios de éxito y de error.
+`GET /productos` lee siempre de una copia local (tabla `gestopago_productos`),
+nunca llama a GestoPago en el momento de la petición: el proveedor solo
+permite consultar `GET /sistema/service/getProductList.do` hasta 3 veces al
+día. Una tarea programada (`GestoPagoProductListSyncServiceImpl`) sincroniza
+el catálogo una vez al día, interpretando la respuesta XML real del
+proveedor y traduciendo los errores (autenticación, timeout, respuesta no
+exitosa, comunicación) a excepciones tipadas.
 
 Documentación técnica detallada (arquitectura, decisiones y supuestos):
 [`docs/product-list-integration.md`](docs/product-list-integration.md)
