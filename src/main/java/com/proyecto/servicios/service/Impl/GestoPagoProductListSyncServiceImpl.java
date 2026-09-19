@@ -1,7 +1,6 @@
 package com.proyecto.servicios.service.Impl;
 
 import com.proyecto.servicios.client.GestoPagoProductListClient;
-import com.proyecto.servicios.entity.gestopago.GestoPagoProducto;
 import com.proyecto.servicios.exception.GestoPagoTokenNoDisponibleException;
 import com.proyecto.servicios.exception.ProductListAuthenticationException;
 import com.proyecto.servicios.exception.ProductListCommunicationException;
@@ -10,15 +9,14 @@ import com.proyecto.servicios.exception.ProductListTimeoutException;
 import com.proyecto.servicios.exception.ProductListUnsuccessfulResponseException;
 import com.proyecto.servicios.mapper.ProductoMapper;
 import com.proyecto.servicios.model.productlist.ProductListApiResponse;
-import com.proyecto.servicios.repositorys.gestopago.GestoPagoProductoRepository;
+import com.proyecto.servicios.model.productlist.ProductoResponse;
 import com.proyecto.servicios.service.GestoPagoProductListSyncService;
 import feign.FeignException;
 import feign.RetryableException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,57 +25,52 @@ import java.util.Optional;
  * GestoPago solo permite invocar getProductList.do "una vez al dia" y hasta
  * 3 veces en total antes de bloquear la IP (ver especificacion PuntoRed), y
  * prohibe usarlo como fuente directa para el frontend. Por eso esta clase
- * corre en un job programado (una vez al dia) y guarda el resultado en la
- * tabla local gestopago_productos; GET /productos (ProductListServiceImpl)
- * solo lee de esa tabla, nunca llama a GestoPago directamente. Cada
- * sincronizacion invalida el cache de Redis ("productos") para que la
- * siguiente lectura recargue los datos frescos desde Postgres.
+ * corre en un job programado (una vez al dia) y el resultado se guarda
+ * UNICAMENTE en el cache de Redis ("productos"), sin persistir nada en
+ * Postgres. GET /productos (ProductListServiceImpl) lee ese mismo cache.
+ *
+ * @Scheduled y @CachePut estan en el MISMO metodo a proposito: si el
+ * @CachePut viviera en un metodo aparte invocado internamente (this.metodo())
+ * desde el metodo programado, el proxy de Spring nunca interceptaria esa
+ * llamada y el cache nunca se actualizaria (auto-invocacion no pasa por el
+ * proxy de AOP).
  */
 @Service
 @Slf4j
 public class GestoPagoProductListSyncServiceImpl implements GestoPagoProductListSyncService {
 
     private final GestoPagoProductListClient productListClient;
-    private final GestoPagoProductoRepository productoRepository;
     private final ProductoMapper productoMapper;
 
     public GestoPagoProductListSyncServiceImpl(GestoPagoProductListClient productListClient,
-                                                GestoPagoProductoRepository productoRepository,
                                                 ProductoMapper productoMapper) {
         this.productListClient = productListClient;
-        this.productoRepository = productoRepository;
         this.productoMapper = productoMapper;
     }
 
+    @Override
     @Scheduled(cron = "${gestopago.productos.sync-cron:0 0 3 * * *}")
-    public void sincronizarProductosProgramado() {
+    @CachePut(cacheNames = "productos", unless = "#result == null")
+    public List<ProductoResponse> sincronizarProductos() {
+        log.info("Iniciando sincronizacion del catalogo de productos GestoPago");
         try {
-            sincronizarProductos();
+            List<ProductoResponse> productos = consultarCatalogoVigente();
+            log.info("Sincronizacion de catalogo de productos GestoPago finalizada. total={}", productos.size());
+            return productos;
+
         } catch (ProductListException e) {
-            log.error("La sincronizacion programada del catalogo de productos GestoPago fallo: {}", e.getMessage());
+            log.error("La sincronizacion del catalogo de productos GestoPago fallo, se conserva el cache anterior: {}", e.getMessage());
+            return null;
         }
     }
 
-    @Override
-    @Transactional
-    @CacheEvict(cacheNames = "productos", allEntries = true)
-    public void sincronizarProductos() {
-        log.info("Iniciando sincronizacion del catalogo de productos GestoPago");
-
-        List<GestoPagoProducto> productos = consultarCatalogoVigente();
-        productoRepository.deleteAllInBatch();
-        productoRepository.saveAll(productos);
-
-        log.info("Sincronizacion de catalogo de productos GestoPago finalizada. total={}", productos.size());
-    }
-
-    private List<GestoPagoProducto> consultarCatalogoVigente() {
+    private List<ProductoResponse> consultarCatalogoVigente() {
         try {
             ProductListApiResponse response = productListClient.getProductList();
             return Optional.ofNullable(response)
                     .filter(r -> r.getMensaje() != null && r.getMensaje().esExitoso())
                     .map(ProductListApiResponse::getProductos)
-                    .map(productoMapper::toEntityList)
+                    .map(productoMapper::toResponseList)
                     .orElseThrow(() -> new ProductListUnsuccessfulResponseException(
                             "GestoPago respondio sin exito al consultar el catalogo de productos", null));
 
