@@ -12,7 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Verifica que ProductListApiResponse deserializa correctamente el XML real
  * documentado por PuntoRed para GET /sistema/service/getProductList.do
  * (https://documenter.getpostman.com/view/19876210/Uz5MFtdn), sin depender
- * de una llamada HTTP real.
+ * de una llamada HTTP real. El XML de este test es un extracto real de esa
+ * documentacion (incluye precio y tipoReferencia).
  */
 class ProductListApiResponseXmlTest {
 
@@ -24,10 +25,10 @@ class ProductListApiResponseXmlTest {
                     <TEXTO>Operacion realizada con exito</TEXTO>
                 </MENSAJE>
                 <PRODUCTOS>
-                    <producto servicio="AGUAKAN (Cancun)" producto="Agua Cancun (Mun. de Benito Juarez)"
-                              idServicio="12" idProducto="345" idCatTipoServicio="2" tipoFront="1"
-                              hasDigitoVerificador="true">
-                        <legend><![CDATA[Para cualquier aclaracion con tu pago, comunicate al call center.]]></legend>
+                    <producto servicio='AGUAKAN (Cancun)' producto='Agua Cancun (Mun. de Benito Juarez y de Isla Mujeres)' idServicio='56' idProducto='185' idCatTipoServicio='15' tipoFront='2' hasDigitoVerificador='false' precio='10.0' showAyuda='false' tipoReferencia='c'>
+                        <legend>
+                            <![CDATA[Para cualquier duda o aclaracion con tu pago, comunicate al servicio de Atencion a clientes de AGUAKAN al telefono 073. No olvides consevar tu comprobante de pago.]]>
+                        </legend>
                     </producto>
                 </PRODUCTOS>
             </RESPONSE>
@@ -46,11 +47,15 @@ class ProductListApiResponseXmlTest {
         assertThat(respuesta.getProductos()).hasSize(1);
 
         ProductoExternoDTO producto = respuesta.getProductos().get(0);
-        assertThat(producto.getIdProducto()).isEqualTo(345);
-        assertThat(producto.getIdServicio()).isEqualTo(12);
+        assertThat(producto.getIdProducto()).isEqualTo(185);
+        assertThat(producto.getIdServicio()).isEqualTo(56);
+        assertThat(producto.getIdCatTipoServicio()).isEqualTo(15);
+        assertThat(producto.getTipoFront()).isEqualTo(2);
         assertThat(producto.getServicio()).isEqualTo("AGUAKAN (Cancun)");
-        assertThat(producto.getProducto()).isEqualTo("Agua Cancun (Mun. de Benito Juarez)");
-        assertThat(producto.getHasDigitoVerificador()).isTrue();
-        assertThat(producto.getLegend()).contains("call center");
+        assertThat(producto.getProducto()).isEqualTo("Agua Cancun (Mun. de Benito Juarez y de Isla Mujeres)");
+        assertThat(producto.getHasDigitoVerificador()).isFalse();
+        assertThat(producto.getTipoReferencia()).isEqualTo("c");
+        assertThat(producto.getPrecio()).isEqualTo("10.0");
+        assertThat(producto.getLegend()).contains("AGUAKAN");
     }
 }

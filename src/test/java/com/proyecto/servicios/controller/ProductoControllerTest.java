@@ -29,7 +29,7 @@ class ProductoControllerTest {
     void obtenerProductos_envuelveElCatalogoEnMensajeYData() {
         ProductoResponse producto = new ProductoResponse();
         producto.setIdProducto(345);
-        producto.setNombre("Agua Cancun");
+        producto.setNombreProducto("Agua Cancun");
 
         when(productListService.obtenerListaProductos()).thenReturn(List.of(producto));
 
@@ -38,6 +38,6 @@ class ProductoControllerTest {
         assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(respuesta.getBody().getMensaje()).isEqualTo("Datos consultados correctamente");
         assertThat(respuesta.getBody().getData()).hasSize(1);
-        assertThat(respuesta.getBody().getData().get(0).getNombre()).isEqualTo("Agua Cancun");
+        assertThat(respuesta.getBody().getData().get(0).getNombreProducto()).isEqualTo("Agua Cancun");
     }
 }

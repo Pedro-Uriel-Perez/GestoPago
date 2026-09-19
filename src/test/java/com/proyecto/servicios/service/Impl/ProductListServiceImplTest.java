@@ -35,7 +35,7 @@ class ProductListServiceImplTest {
 
         ProductoResponse mapeado = new ProductoResponse();
         mapeado.setIdProducto(1);
-        mapeado.setNombre("Agua Cancun");
+        mapeado.setNombreProducto("Agua Cancun");
 
         when(productoRepository.findAll()).thenReturn(List.of(entidad));
         when(productoMapper.toResponseList(List.of(entidad))).thenReturn(List.of(mapeado));
@@ -43,7 +43,7 @@ class ProductListServiceImplTest {
         List<ProductoResponse> resultado = productListService.obtenerListaProductos();
 
         assertThat(resultado).hasSize(1);
-        assertThat(resultado.get(0).getNombre()).isEqualTo("Agua Cancun");
+        assertThat(resultado.get(0).getNombreProducto()).isEqualTo("Agua Cancun");
     }
 
     @Test

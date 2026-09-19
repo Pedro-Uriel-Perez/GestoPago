@@ -17,7 +17,8 @@ public interface ProductoMapper {
 
     List<GestoPagoProducto> toEntityList(List<ProductoExternoDTO> externos);
 
-    @Mapping(target = "nombre", source = "producto")
+    @Mapping(target = "nombreProducto", source = "producto")
+    @Mapping(target = "nombreServicio", source = "servicio")
     @Mapping(target = "descripcion", source = "legend")
     ProductoResponse toResponse(GestoPagoProducto entidad);
 

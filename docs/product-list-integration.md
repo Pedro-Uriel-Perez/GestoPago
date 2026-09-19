@@ -61,13 +61,20 @@ El "Example Response" de la especificación es XML:
     <TEXTO>Operacion realizada con exito</TEXTO>
   </MENSAJE>
   <PRODUCTOS>
-    <producto servicio="ABIB" producto="ABIB 100"
-              idServicio="2284" idProducto="14302" idCatTipoServicio="1" tipoFront="1">
-      <legend><![CDATA[Recibe soporte las 24h del dia...]]></legend>
+    <producto servicio="AGUAKAN (Cancun)" producto="Agua Cancun"
+              idServicio="56" idProducto="185" idCatTipoServicio="15" tipoFront="2"
+              hasDigitoVerificador="false" precio="10.0" showAyuda="false" tipoReferencia="c">
+      <legend><![CDATA[Para cualquier duda...]]></legend>
     </producto>
   </PRODUCTOS>
 </RESPONSE>
 ```
+Según la tabla "Detailed Response XML Data" de la especificación, cada
+`<producto>` trae: `producto`, `servicio`, `idServicio`, `idProducto`,
+`idCatTipoServicio`, `tipoFront`, `hasDigitoVerificador` (deprecated),
+`tipoReferencia`, `precio` (`string(15)`, no numérico) y `showAyuda`
+(deprecated) — todos como atributos XML, más `<legend>` como elemento hijo.
+
 Los DTOs (`ProductListApiResponse`, `MensajeExternoDTO`, `ProductoExternoDTO`)
 usan anotaciones **JAXB** (`@XmlRootElement`, `@XmlElement`,
 `@XmlElementWrapper`, `@XmlAttribute`), no Jackson. Las dependencias
@@ -90,7 +97,19 @@ XML con la forma exacta de la especificación, sin necesitar red ni mocks.
 {
   "mensaje": "Datos consultados correctamente",
   "data": [
-    { "idProducto": 14302, "idServicio": 2284, "servicio": "ABIB", "nombre": "ABIB 100", "descripcion": "..." }
+    {
+      "id": 1,
+      "idProducto": 185,
+      "idServicio": 56,
+      "idCatTipoServicio": 15,
+      "nombreProducto": "Agua Cancun",
+      "nombreServicio": "AGUAKAN (Cancun)",
+      "tipoFront": 2,
+      "tipoReferencia": "c",
+      "precio": "10.0",
+      "descripcion": "...",
+      "fechaActualizacion": "2026-09-19T01:57:04.12"
+    }
   ]
 }
 ```
@@ -172,10 +191,16 @@ respuesta del proveedor.
    fuente de verdad/respaldo; Redis acelera lecturas.
 2. **`@Scheduled` + `@CacheEvict` en el mismo método**: necesario para
    evitar el problema de auto-invocación de Spring AOP.
-3. **Campos del catálogo**: se modelaron los atributos documentados en la
-   especificación (`idProducto`, `idServicio`, `servicio`, `producto`,
-   `legend`). No incluye precio ni existencia porque la API de GestoPago no
-   los expone en este endpoint.
+3. **Campos del catálogo**: se modelaron todos los atributos de la tabla
+   "Detailed Response XML Data" de la especificación (`idProducto`,
+   `idServicio`, `servicio`, `producto`, `idCatTipoServicio`, `tipoFront`,
+   `tipoReferencia`, `precio`, `legend`). `precio` se modela como `String`
+   porque la especificación lo tipa como `string(15)`, no como número.
+   `hasDigitoVerificador` y `showAyuda` están marcados como deprecated en la
+   especificación (se eliminarán en la próxima versión de la API):
+   `hasDigitoVerificador` se guarda en Postgres pero no se expone en
+   `ProductoResponse`; `showAyuda` no se modela en absoluto, por no aportar
+   valor a este endpoint y estar próximo a desaparecer.
 4. **Formato de respuesta `{"mensaje", "data"}`**: confirmado como válido
    para este endpoint específico.
 5. **Sin `VARCHAR`**: la tabla `gestopago_productos` usa `TEXT` para todos

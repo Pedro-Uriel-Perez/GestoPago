@@ -44,6 +44,12 @@ public class GestoPagoProducto {
     @Column(name = "has_digito_verificador")
     private Boolean hasDigitoVerificador;
 
+    @Column(name = "tipo_referencia", columnDefinition = "TEXT")
+    private String tipoReferencia;
+
+    @Column(name = "precio", columnDefinition = "TEXT")
+    private String precio;
+
     @Column(name = "legend", columnDefinition = "TEXT")
     private String legend;
 
