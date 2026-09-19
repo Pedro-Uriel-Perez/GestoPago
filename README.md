@@ -61,3 +61,14 @@ servicio real de GestoPago.
 Documentación técnica detallada (arquitectura, decisiones y supuestos):
 [`docs/product-list-integration.md`](docs/product-list-integration.md)
 
+## Flujo de trabajo (Git)
+
+```
+feature/nombre-del-cambio ──► develop ──► main
+```
+
+- **`develop`**: rama de integración; cada funcionalidad nueva llega aquí
+  primero mediante un Pull Request desde su propia rama `feature/...`.
+- **`main`**: solo recibe cambios desde `develop`, una vez que está estable.
+- Ejemplo ya aplicado: [`feature/lista-productos` → `develop` (PR #1)](../../pull/1).
+
