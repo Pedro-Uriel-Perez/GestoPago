@@ -112,7 +112,8 @@ No se agregó una URL ni un token nuevos para GestoPago: se reutilizan
 | Config | `RedisCacheConfig` | Define el TTL del cache `"productos"` en Redis (respaldo adicional al control explícito de `@CachePut`/`@Cacheable`). |
 | Client | `GestoPagoProductListClient` | Interfaz Feign para `GET /sistema/service/getProductList.do` (XML). |
 | Model | `ProductoExternoDTO`, `MensajeExternoDTO`, `ProductListApiResponse` | Forma XML real de la respuesta del proveedor (JAXB). |
-| Model | `ProductoResponse` | DTO público de `GET /productos`. |
+| Model | `ProductoResponse` | Un producto/servicio del catálogo, en la respuesta pública. |
+| Model | `ProductoListResponse` | Envoltura de `GET /productos`: `{"mensaje": "...", "data": [...]}`. |
 | Mapper | `ProductoMapper` (MapStruct) | `ProductoExternoDTO → ProductoResponse` directo (sin entidad intermedia). |
 | Service (sincronización) | `GestoPagoProductListSyncService` / `Impl` | Llama a GestoPago una vez al día, valida el `MENSAJE.CODIGO`, traduce errores y escribe el resultado en Redis. |
 | Service (lectura) | `ProductListService` / `ProductListServiceImpl` | Lee del cache de Redis. Nunca llama a GestoPago. |
