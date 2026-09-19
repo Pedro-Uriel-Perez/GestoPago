@@ -1,5 +1,9 @@
 package com.proyecto.servicios.config;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -16,6 +20,13 @@ import java.time.Duration;
  * (fuente de verdad en Postgres, ver GestoPagoProductListSyncServiceImpl).
  * El TTL es una red de seguridad adicional a la invalidacion explicita
  * (@CacheEvict) que ocurre en cada sincronizacion diaria.
+ *
+ * Los valores se serializan como JSON (no con el serializador nativo de
+ * Java, que exigiria que cada DTO cacheado implemente Serializable). El
+ * ObjectMapper propio registra JavaTimeModule para poder serializar
+ * LocalDateTime (fechaActualizacion) y mantiene el tipado por defecto de
+ * GenericJackson2JsonRedisSerializer para poder deserializar de vuelta al
+ * tipo concreto (ProductoResponse).
  */
 @Configuration
 public class RedisCacheConfig {
@@ -25,10 +36,19 @@ public class RedisCacheConfig {
 
     @Bean
     public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer() {
+        ObjectMapper redisObjectMapper = new ObjectMapper();
+        redisObjectMapper.registerModule(new JavaTimeModule());
+        redisObjectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        redisObjectMapper.activateDefaultTyping(
+                redisObjectMapper.getPolymorphicTypeValidator(),
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                JsonTypeInfo.As.PROPERTY);
+
         RedisCacheConfiguration configuracion = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofHours(cacheTtlHours))
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer()));
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
+                        new GenericJackson2JsonRedisSerializer(redisObjectMapper)));
 
         return builder -> builder.withCacheConfiguration("productos", configuracion);
     }
