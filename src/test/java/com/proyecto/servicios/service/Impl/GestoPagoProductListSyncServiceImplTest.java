@@ -1,12 +1,13 @@
 package com.proyecto.servicios.service.Impl;
 
 import com.proyecto.servicios.client.GestoPagoProductListClient;
+import com.proyecto.servicios.entity.gestopago.GestoPagoProducto;
 import com.proyecto.servicios.exception.GestoPagoTokenNoDisponibleException;
 import com.proyecto.servicios.mapper.ProductoMapper;
 import com.proyecto.servicios.model.productlist.MensajeExternoDTO;
 import com.proyecto.servicios.model.productlist.ProductListApiResponse;
 import com.proyecto.servicios.model.productlist.ProductoExternoDTO;
-import com.proyecto.servicios.model.productlist.ProductoResponse;
+import com.proyecto.servicios.repositorys.gestopago.GestoPagoProductoRepository;
 import feign.FeignException;
 import feign.Request;
 import feign.Response;
@@ -21,22 +22,19 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Estas pruebas invocan sincronizarProductos() directamente sobre el objeto
- * (sin contexto de Spring), por lo que @Scheduled y @CachePut no se activan
- * (son AOP de Spring) - se verifica unicamente el valor que el metodo
- * retorna: la lista mapeada en exito, o null en cada escenario de error
- * (que es justo lo que hace que @CachePut, en tiempo de ejecucion real, NO
- * sobreescriba el cache existente).
- */
 @ExtendWith(MockitoExtension.class)
 class GestoPagoProductListSyncServiceImplTest {
 
     @Mock
     private GestoPagoProductListClient productListClient;
+
+    @Mock
+    private GestoPagoProductoRepository productoRepository;
 
     @Mock
     private ProductoMapper productoMapper;
@@ -45,7 +43,7 @@ class GestoPagoProductListSyncServiceImplTest {
     private GestoPagoProductListSyncServiceImpl syncService;
 
     @Test
-    void sincronizarProductos_respuestaExitosa_retornaListaMapeada() {
+    void sincronizarProductos_respuestaExitosa_reemplazaElCatalogoEnPostgres() {
         ProductoExternoDTO externo = new ProductoExternoDTO();
         externo.setIdProducto(1);
         externo.setProducto("Agua Cancun");
@@ -54,63 +52,75 @@ class GestoPagoProductListSyncServiceImplTest {
         apiResponse.setMensaje(mensaje("01", "Operacion realizada con exito"));
         apiResponse.setProductos(List.of(externo));
 
-        ProductoResponse mapeado = new ProductoResponse();
-        mapeado.setIdProducto(1);
-        mapeado.setNombre("Agua Cancun");
+        GestoPagoProducto entidad = new GestoPagoProducto();
+        entidad.setIdProducto(1);
 
         when(productListClient.getProductList()).thenReturn(apiResponse);
-        when(productoMapper.toResponseList(apiResponse.getProductos())).thenReturn(List.of(mapeado));
+        when(productoMapper.toEntityList(apiResponse.getProductos())).thenReturn(List.of(entidad));
 
-        List<ProductoResponse> resultado = syncService.sincronizarProductos();
+        syncService.sincronizarProductos();
 
-        assertThat(resultado).hasSize(1);
-        assertThat(resultado.get(0).getNombre()).isEqualTo("Agua Cancun");
+        verify(productoRepository, times(1)).deleteAllInBatch();
+        verify(productoRepository, times(1)).saveAll(List.of(entidad));
     }
 
     @Test
-    void sincronizarProductos_respuestaConCodigoDeError_retornaNull() {
+    void sincronizarProductos_respuestaConCodigoDeError_noTocaElCatalogoEnPostgres() {
         ProductListApiResponse apiResponse = new ProductListApiResponse();
         apiResponse.setMensaje(mensaje("99", "Distribuidor no autorizado"));
 
         when(productListClient.getProductList()).thenReturn(apiResponse);
 
-        assertThat(syncService.sincronizarProductos()).isNull();
+        syncService.sincronizarProductos();
+
+        verify(productoRepository, never()).deleteAllInBatch();
+        verify(productoRepository, never()).saveAll(org.mockito.ArgumentMatchers.anyList());
     }
 
     @Test
-    void sincronizarProductos_sinTokenGestoPagoDisponible_retornaNull() {
+    void sincronizarProductos_sinTokenGestoPagoDisponible_noTocaElCatalogoEnPostgres() {
         when(productListClient.getProductList())
                 .thenThrow(new GestoPagoTokenNoDisponibleException("No hay un token GestoPago activo"));
 
-        assertThat(syncService.sincronizarProductos()).isNull();
+        syncService.sincronizarProductos();
+
+        verify(productoRepository, never()).deleteAllInBatch();
     }
 
     @Test
-    void sincronizarProductos_errorDeAutenticacion_retornaNull() {
+    void sincronizarProductos_errorDeAutenticacion_noTocaElCatalogoEnPostgres() {
         when(productListClient.getProductList()).thenThrow(feignErrorStatus(401));
 
-        assertThat(syncService.sincronizarProductos()).isNull();
+        syncService.sincronizarProductos();
+
+        verify(productoRepository, never()).deleteAllInBatch();
     }
 
     @Test
-    void sincronizarProductos_timeout_retornaNull() {
+    void sincronizarProductos_timeout_noTocaElCatalogoEnPostgres() {
         when(productListClient.getProductList()).thenThrow(retryableTimeout());
 
-        assertThat(syncService.sincronizarProductos()).isNull();
+        syncService.sincronizarProductos();
+
+        verify(productoRepository, never()).deleteAllInBatch();
     }
 
     @Test
-    void sincronizarProductos_errorHttpNoAutenticacion_retornaNull() {
+    void sincronizarProductos_errorHttpNoAutenticacion_noTocaElCatalogoEnPostgres() {
         when(productListClient.getProductList()).thenThrow(feignErrorStatus(500));
 
-        assertThat(syncService.sincronizarProductos()).isNull();
+        syncService.sincronizarProductos();
+
+        verify(productoRepository, never()).deleteAllInBatch();
     }
 
     @Test
-    void sincronizarProductos_errorInesperado_retornaNull() {
+    void sincronizarProductos_errorInesperado_noTocaElCatalogoEnPostgres() {
         when(productListClient.getProductList()).thenThrow(new RuntimeException("fallo de red"));
 
-        assertThat(syncService.sincronizarProductos()).isNull();
+        syncService.sincronizarProductos();
+
+        verify(productoRepository, never()).deleteAllInBatch();
     }
 
     private MensajeExternoDTO mensaje(String codigo, String texto) {

@@ -1,19 +1,15 @@
 package com.proyecto.servicios.service;
 
-import com.proyecto.servicios.model.productlist.ProductoResponse;
-
-import java.util.List;
-
 /**
- * Sincroniza el cache de productos/servicios (Redis) con el catalogo que
- * expone GestoPago. GestoPago solo permite invocar getProductList.do hasta
- * 3 veces al dia y prohibe usarlo como fuente directa para el frontend, por
- * lo que esta sincronizacion corre en un job programado (ver implementacion)
- * y el resto de la aplicacion (GET /productos) lee siempre del cache.
- *
- * No se persiste en Postgres: el catalogo vive unicamente en Redis.
+ * Sincroniza el catalogo local de productos/servicios (Postgres, tabla
+ * gestopago_productos) con el que expone GestoPago, e invalida el cache de
+ * Redis ("productos") para que la siguiente lectura recargue datos frescos.
+ * GestoPago solo permite invocar getProductList.do hasta 3 veces al dia y
+ * prohibe usarlo como fuente directa para el frontend, por lo que esta
+ * sincronizacion corre en un job programado (ver implementacion) y el resto
+ * de la aplicacion (GET /productos) nunca llama a GestoPago directamente.
  */
 public interface GestoPagoProductListSyncService {
 
-    List<ProductoResponse> sincronizarProductos();
+    void sincronizarProductos();
 }
