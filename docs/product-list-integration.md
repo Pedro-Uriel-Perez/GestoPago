@@ -25,6 +25,13 @@ petición**. La arquitectura separa dos responsabilidades:
    catálogo en la tabla local `gestopago_productos`.
 2. **Lectura** (`ProductListServiceImpl` / `GET /productos`): siempre lee de
    esa tabla local, nunca de GestoPago directamente.
+3. **Cache de lectura (Redis)**: `GET /productos` está anotado con
+   `@Cacheable("productos")`, así que las consultas repetidas no vuelven a
+   golpear Postgres. Cada sincronización diaria invalida ese cache
+   (`@CacheEvict(allEntries = true)` en `sincronizarProductos()`), y además
+   tiene un TTL de respaldo de 25 horas (`gestopago.productos.cache-ttl-hours`)
+   por si el cron llegara a fallar. Postgres sigue siendo la fuente de
+   verdad; Redis es solo una capa de velocidad encima.
 
 ## La respuesta real es XML, no JSON
 El "Example Response" de la especificación es XML:
@@ -62,14 +69,23 @@ mocks, para confirmar que el mapeo es correcto.
 feign.client.config.gestoPagoProductList.connect-timeout=5000
 feign.client.config.gestoPagoProductList.read-timeout=10000
 gestopago.productos.sync-cron=0 0 3 * * *
+
+spring.cache.type=redis
+spring.data.redis.host=${REDIS_HOST:localhost}
+spring.data.redis.port=${REDIS_PORT:6379}
+spring.data.redis.password=${REDIS_PASSWORD:}
+gestopago.productos.cache-ttl-hours=25
 ```
-No se agregó una URL ni un token nuevos: se reutilizan `gestopago.auth.url`
-y el token ya gestionado por `GestoPagoTokenServiceImpl`.
+No se agregó una URL ni un token nuevos para GestoPago: se reutilizan
+`gestopago.auth.url` y el token ya gestionado por
+`GestoPagoTokenServiceImpl`. Redis sí requiere su propia conexión
+(host/puerto/password vía variables de entorno).
 
 ## Capas implementadas
 | Capa | Clase | Responsabilidad |
 |---|---|---|
 | Config | `GestoPagoProductListFeignConfig` | Agrega `Authorization: Bearer <token>` obteniéndolo de `GestoPagoTokenService.obtenerTokenActivo(...)` en cada llamada. |
+| Config | `RedisCacheConfig` | Define el TTL del cache `"productos"` en Redis (respaldo del `@CacheEvict` explícito). |
 | Client | `GestoPagoProductListClient` | Interfaz Feign para `GET /sistema/service/getProductList.do` (XML). |
 | Model | `ProductoExternoDTO`, `MensajeExternoDTO`, `ProductListApiResponse` | Forma XML real de la respuesta del proveedor (JAXB). |
 | Model | `ProductoResponse` | DTO público de `GET /productos`, desacoplado del formato externo. |
@@ -136,6 +152,8 @@ respuesta del proveedor.
    los campos de texto, siguiendo la convención pedida.
 5. **Pendiente fuera de esta corrección**: aún no se cuenta con credenciales
    reales de GestoPago (`idDistribuidor`, `codigoDispositivo`, `password`)
-   para validar esto contra el servicio real; deben solicitarse al
-   proveedor/profesor. Sin ellas, el flujo se valida con pruebas unitarias y
-   la prueba de deserialización XML contra el contrato documentado.
+   ni con una instancia de Redis/Postgres corriendo para validar esto en
+   vivo. Sin ellas, el flujo se valida con pruebas unitarias (que no usan
+   Spring ni Redis, por lo que las anotaciones `@Cacheable`/`@CacheEvict`
+   simplemente no se activan en esos tests) y la prueba de deserialización
+   XML contra el contrato documentado.

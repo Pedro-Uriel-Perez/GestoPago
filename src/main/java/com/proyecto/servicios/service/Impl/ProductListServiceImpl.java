@@ -5,6 +5,7 @@ import com.proyecto.servicios.model.productlist.ProductoResponse;
 import com.proyecto.servicios.repositorys.gestopago.GestoPagoProductoRepository;
 import com.proyecto.servicios.service.ProductListService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,6 +16,10 @@ import java.util.List;
  * peticion: el proveedor solo permite consultar getProductList.do hasta 3
  * veces al dia y prohibe usarlo como fuente directa para el frontend (ver
  * GestoPagoProductListSyncServiceImpl, que mantiene esta copia actualizada).
+ *
+ * El resultado se cachea en Redis (cache "productos") para que consultas
+ * repetidas no vuelvan a golpear Postgres; GestoPagoProductListSyncServiceImpl
+ * invalida este cache en cada sincronizacion diaria.
  */
 @Service
 @Slf4j
@@ -29,6 +34,7 @@ public class ProductListServiceImpl implements ProductListService {
     }
 
     @Override
+    @Cacheable(cacheNames = "productos")
     public List<ProductoResponse> obtenerListaProductos() {
         log.info("Consultando catalogo local de productos GestoPago");
 

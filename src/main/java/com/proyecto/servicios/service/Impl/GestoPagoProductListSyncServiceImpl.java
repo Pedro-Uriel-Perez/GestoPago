@@ -15,6 +15,7 @@ import com.proyecto.servicios.service.GestoPagoProductListSyncService;
 import feign.FeignException;
 import feign.RetryableException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +29,9 @@ import java.util.Optional;
  * prohibe usarlo como fuente directa para el frontend. Por eso esta clase
  * corre en un job programado (una vez al dia) y guarda el resultado en la
  * tabla local gestopago_productos; GET /productos (ProductListServiceImpl)
- * solo lee de esa tabla, nunca llama a GestoPago directamente.
+ * solo lee de esa tabla, nunca llama a GestoPago directamente. Cada
+ * sincronizacion invalida el cache de Redis ("productos") para que la
+ * siguiente lectura recargue los datos frescos desde Postgres.
  */
 @Service
 @Slf4j
@@ -57,6 +60,7 @@ public class GestoPagoProductListSyncServiceImpl implements GestoPagoProductList
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "productos", allEntries = true)
     public void sincronizarProductos() {
         log.info("Iniciando sincronizacion del catalogo de productos GestoPago");
 
