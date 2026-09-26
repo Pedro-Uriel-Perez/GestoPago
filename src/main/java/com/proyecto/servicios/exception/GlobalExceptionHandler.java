@@ -21,6 +21,10 @@ import java.util.stream.Collectors;
  * no exitosa, comunicacion) no se manejan aqui: ocurren dentro del job
  * programado GestoPagoProductListSyncServiceImpl, fuera de una peticion
  * HTTP, y se registran (log) ahi mismo.
+ *
+ * Las excepciones de Onboarding de Clientes (Cliente/Cuenta no encontrado,
+ * CURP/RFC/correo duplicado) si se manejan aqui, porque ocurren dentro de
+ * una peticion HTTP normal (ClienteController/CuentaController).
  */
 @Slf4j
 @RestControllerAdvice
@@ -33,6 +37,24 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
         log.warn("Error de validacion en el request: {}", mensaje);
         return construirRespuesta(HttpStatus.BAD_REQUEST, mensaje);
+    }
+
+    @ExceptionHandler(ClienteYaRegistradoException.class)
+    public ResponseEntity<GenericResponse> handleClienteYaRegistrado(ClienteYaRegistradoException ex) {
+        log.warn("Intento de registrar un cliente duplicado: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(ClienteNoEncontradoException.class)
+    public ResponseEntity<GenericResponse> handleClienteNoEncontrado(ClienteNoEncontradoException ex) {
+        log.warn("Cliente no encontrado: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(CuentaNoEncontradaException.class)
+    public ResponseEntity<GenericResponse> handleCuentaNoEncontrada(CuentaNoEncontradaException ex) {
+        log.warn("Cuenta no encontrada: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
     private ResponseEntity<GenericResponse> construirRespuesta(HttpStatus status, String mensaje) {
