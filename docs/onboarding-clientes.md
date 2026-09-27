@@ -76,6 +76,7 @@ erDiagram
         text nombre_cifrado "cifrado"
         text jwt_token "cifrado"
         text datos_biometricos "cifrado"
+        text password_hash "BCrypt, no cifrado"
         boolean sesion_activa
         timestamp fecha_ultimo_acceso
         timestamp fecha_creacion
@@ -85,7 +86,8 @@ erDiagram
 ## Script de creación de base de datos
 Migraciones Flyway (`src/main/resources/db/migration/`):
 `V4__create_clientes.sql`, `V5__create_domicilios.sql`,
-`V6__create_cuentas.sql`, `V7__create_saldos.sql`, `V8__create_logins.sql`.
+`V6__create_cuentas.sql`, `V7__create_saldos.sql`, `V8__create_logins.sql`,
+`V9__add_password_hash_to_logins.sql`.
 
 ## Decisiones de diseño y por qué
 
@@ -142,12 +144,25 @@ runtime (`jjwt-impl`/`jjwt-jackson`) para la 0.11.5 — si Gradle resolvía la
 0.12.6, el JWT habría fallado en tiempo de ejecución por falta de
 implementación. Se dejó consistente en 0.11.5.
 
-**Supuesto importante**: el enunciado no define un mecanismo de contraseña
-para el login del cliente (el registro tampoco captura una). Por ahora,
-`POST /login` identifica al cliente solo por su correo registrado y le
-emite un JWT. Esto es una simplificación deliberada, documentada aquí para
-que se ajuste cuando se defina el mecanismo de autenticación real
-(contraseña, biometría, etc.).
+### Contraseña de login: hash de un solo sentido (BCrypt), no cifrado
+`ClienteRequest` ahora exige `password` (mínimo 8 caracteres) al registrar
+un cliente. `ClienteServiceImpl.crearCliente()` llama a
+`LoginService.registrarCredenciales(cliente, password)`, que guarda en
+`logins.password_hash` el resultado de `BCryptPasswordEncoder.encode(...)`
+— nunca la contraseña en texto plano.
+
+Este campo **no** pasa por `AesStringConverter` como el resto de la tabla
+`logins`. AES es cifrado reversible (se puede descifrar con la clave), y
+una contraseña nunca debe poder recuperarse en texto plano — ni siquiera
+por quien tiene la clave de cifrado. BCrypt es un hash de un solo sentido:
+solo se puede verificar (`passwordEncoder.matches(plano, hash)`), nunca
+revertir. Cifrar además el hash con AES no agregaría seguridad real y
+complicaría la verificación sin necesidad.
+
+`POST /login` ahora exige `correoElectronico` + `password`. Si el correo no
+existe o la contraseña no coincide, responde igual (401,
+`CredencialesInvalidasException`) para no revelar si un correo está
+registrado.
 
 ### Inactividad de sesión (5 minutos)
 `LoginServiceImpl.cerrarSesionesInactivas()` corre en una tarea programada
@@ -196,25 +211,25 @@ el service — igual que el resto del proyecto:
 | GET | `/cuentas/{numeroCuenta}` | Cuenta + saldo actual |
 | GET | `/cuentas/activas` | Cuentas con estatus ACTIVA |
 | GET | `/cuentas/{numeroCuenta}/saldos` | Historial de saldos |
-| POST | `/login` | Emite un JWT para el cliente (por correo) |
+| POST | `/login` | Verifica correo + contraseña y emite un JWT |
 | POST | `/login/{clienteId}/cerrar` | Cierra la sesión manualmente |
 
-## Pruebas unitarias (25 nuevas, 36 en total en el proyecto)
+## Pruebas unitarias
 - `AesEncryptionUtilTest`: cifrado/descifrado de texto y de `double[]`,
   IV aleatorio (dos cifrados del mismo valor no son iguales), valores nulos.
 - `EdadMinimaValidatorTest`: casos límite (18 años exactos, un día antes,
   17 años, fecha nula).
 - `ClienteServiceImplTest`: alta exitosa (crea domicilio/cuenta/saldo
-  inicial), CURP/RFC/correo duplicados, cliente no encontrado, baja lógica
-  (no borra físicamente), cuenta no encontrada.
+  inicial y registra credenciales de login), CURP/RFC/correo duplicados,
+  cliente no encontrado, baja lógica (no borra físicamente y cierra la
+  sesión), cuenta no encontrada.
 - `CuentaServiceImplTest`: saldo actual desde el historial, cuenta sin
   movimientos (saldo cero), cuenta no encontrada, historial completo.
-- `LoginServiceImplTest`: inicio de sesión exitoso, cliente no encontrado,
-  cierre de sesión, cierre por inactividad.
+- `LoginServiceImplTest`: registro de credenciales (hash BCrypt, sesión
+  inactiva), inicio de sesión exitoso, contraseña incorrecta, correo no
+  registrado, cierre de sesión, cierre por inactividad.
 
 ## Pendiente / fuera de este alcance
 - Integrar de verdad una librería de reconocimiento facial (MediaPipe u
   otra) — el campo ya está listo, pero la integración se deja para cuando
   el profesor lo indique explícitamente.
-- Definir un mecanismo real de autenticación con contraseña para el login,
-  si el profesor lo requiere más adelante.

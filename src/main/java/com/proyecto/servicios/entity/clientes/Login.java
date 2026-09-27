@@ -13,7 +13,9 @@ import java.time.LocalDateTime;
  * jwtToken y datosBiometricos se cifran con AES (ver paquete security) antes
  * de guardarse. sesionActiva y fechaUltimoAcceso quedan sin cifrar a
  * proposito: la tarea programada que cierra sesiones inactivas necesita
- * compararlas directamente en SQL.
+ * compararlas directamente en SQL. passwordHash tampoco pasa por AES: es un
+ * hash BCrypt de un solo sentido (ver LoginServiceImpl), no un dato cifrado
+ * reversible.
  */
 @Entity
 @Table(name = "logins")
@@ -44,6 +46,9 @@ public class Login {
     @Convert(converter = AesDoubleArrayConverter.class)
     @Column(name = "datos_biometricos", columnDefinition = "TEXT")
     private double[] datosBiometricos;
+
+    @Column(name = "password_hash", columnDefinition = "TEXT")
+    private String passwordHash;
 
     @Column(name = "sesion_activa", nullable = false)
     private Boolean sesionActiva = false;

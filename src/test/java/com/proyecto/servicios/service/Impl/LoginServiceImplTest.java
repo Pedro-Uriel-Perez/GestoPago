@@ -2,7 +2,7 @@ package com.proyecto.servicios.service.Impl;
 
 import com.proyecto.servicios.entity.clientes.Cliente;
 import com.proyecto.servicios.entity.clientes.Login;
-import com.proyecto.servicios.exception.ClienteNoEncontradoException;
+import com.proyecto.servicios.exception.CredencialesInvalidasException;
 import com.proyecto.servicios.repositorys.clientes.ClienteRepository;
 import com.proyecto.servicios.repositorys.clientes.LoginRepository;
 import com.proyecto.servicios.security.JwtService;
@@ -12,6 +12,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,33 +40,70 @@ class LoginServiceImplTest {
     private LoginServiceImpl loginService;
 
     @Test
-    void iniciarSesion_clienteExistente_creaLoginConSesionActivaYToken() {
+    void registrarCredenciales_guardaLoginConHashDeLaContrasenaYSesionInactiva() {
         Cliente cliente = new Cliente();
         cliente.setId(1);
         cliente.setCorreoElectronico("cliente@correo.com");
         cliente.setNombre("Ana");
 
-        when(clienteRepository.findByCorreoElectronico("cliente@correo.com")).thenReturn(Optional.of(cliente));
-        when(jwtService.generarToken(1, "cliente@correo.com")).thenReturn("token-generado");
-        when(loginRepository.findByClienteId(1)).thenReturn(Optional.empty());
-
-        String token = loginService.iniciarSesion("cliente@correo.com");
-
-        assertThat(token).isEqualTo("token-generado");
+        loginService.registrarCredenciales(cliente, "contrasena123");
 
         ArgumentCaptor<Login> captor = ArgumentCaptor.forClass(Login.class);
         verify(loginRepository).save(captor.capture());
-        assertThat(captor.getValue().getSesionActiva()).isTrue();
-        assertThat(captor.getValue().getJwtToken()).isEqualTo("token-generado");
-        assertThat(captor.getValue().getFechaUltimoAcceso()).isNotNull();
+
+        Login login = captor.getValue();
+        assertThat(login.getPasswordHash()).isNotEqualTo("contrasena123");
+        assertThat(new BCryptPasswordEncoder().matches("contrasena123", login.getPasswordHash())).isTrue();
+        assertThat(login.getSesionActiva()).isFalse();
     }
 
     @Test
-    void iniciarSesion_clienteNoExiste_lanzaClienteNoEncontradoException() {
+    void iniciarSesion_credencialesCorrectas_creaSesionActivaYToken() {
+        Cliente cliente = new Cliente();
+        cliente.setId(1);
+        cliente.setCorreoElectronico("cliente@correo.com");
+        cliente.setNombre("Ana");
+
+        Login login = new Login();
+        login.setPasswordHash(new BCryptPasswordEncoder().encode("contrasena123"));
+
+        when(clienteRepository.findByCorreoElectronico("cliente@correo.com")).thenReturn(Optional.of(cliente));
+        when(loginRepository.findByClienteId(1)).thenReturn(Optional.of(login));
+        when(jwtService.generarToken(1, "cliente@correo.com")).thenReturn("token-generado");
+
+        String token = loginService.iniciarSesion("cliente@correo.com", "contrasena123");
+
+        assertThat(token).isEqualTo("token-generado");
+        assertThat(login.getSesionActiva()).isTrue();
+        assertThat(login.getJwtToken()).isEqualTo("token-generado");
+        assertThat(login.getFechaUltimoAcceso()).isNotNull();
+        verify(loginRepository).save(login);
+    }
+
+    @Test
+    void iniciarSesion_contrasenaIncorrecta_lanzaCredencialesInvalidasException() {
+        Cliente cliente = new Cliente();
+        cliente.setId(1);
+        cliente.setCorreoElectronico("cliente@correo.com");
+
+        Login login = new Login();
+        login.setPasswordHash(new BCryptPasswordEncoder().encode("contrasena123"));
+
+        when(clienteRepository.findByCorreoElectronico("cliente@correo.com")).thenReturn(Optional.of(cliente));
+        when(loginRepository.findByClienteId(1)).thenReturn(Optional.of(login));
+
+        assertThatThrownBy(() -> loginService.iniciarSesion("cliente@correo.com", "contrasena-equivocada"))
+                .isInstanceOf(CredencialesInvalidasException.class);
+
+        verify(loginRepository, never()).save(any());
+    }
+
+    @Test
+    void iniciarSesion_correoNoExiste_lanzaCredencialesInvalidasException() {
         when(clienteRepository.findByCorreoElectronico("no-existe@correo.com")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> loginService.iniciarSesion("no-existe@correo.com"))
-                .isInstanceOf(ClienteNoEncontradoException.class);
+        assertThatThrownBy(() -> loginService.iniciarSesion("no-existe@correo.com", "cualquier-cosa"))
+                .isInstanceOf(CredencialesInvalidasException.class);
 
         verify(loginRepository, never()).save(any());
     }
@@ -86,6 +125,8 @@ class LoginServiceImplTest {
 
     @Test
     void cerrarSesionesInactivas_cierraSoloLasQueSuperanElUmbral() {
+        ReflectionTestUtils.setField(loginService, "inactividadMinutos", 5L);
+
         Login sesionInactiva1 = new Login();
         sesionInactiva1.setSesionActiva(true);
         sesionInactiva1.setJwtToken("token-1");

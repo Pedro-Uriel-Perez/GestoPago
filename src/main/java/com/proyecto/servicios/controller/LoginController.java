@@ -22,7 +22,7 @@ public class LoginController {
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<LoginResponse> iniciarSesion(@Valid @RequestBody LoginRequest request) {
-        String jwt = loginService.iniciarSesion(request.getCorreoElectronico());
+        String jwt = loginService.iniciarSesion(request.getCorreoElectronico(), request.getPassword());
         return ResponseEntity.ok(new LoginResponse(jwt));
     }
 

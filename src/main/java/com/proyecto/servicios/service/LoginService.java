@@ -1,17 +1,22 @@
 package com.proyecto.servicios.service;
 
+import com.proyecto.servicios.entity.clientes.Cliente;
+
 public interface LoginService {
 
     /**
-     * Identifica al cliente por su correo, le emite un JWT y marca su
-     * sesion como activa. Simplificacion documentada: el enunciado no
-     * define un mecanismo de password para el login del cliente (el
-     * registro tampoco captura una), asi que por ahora el correo
-     * registrado es suficiente para identificarlo; el reconocimiento
-     * facial (datos_biometricos) queda reservado para cuando se integre
-     * una libreria real (ver docs/onboarding-clientes.md).
+     * Crea el registro de seguridad/login del cliente al momento del
+     * registro, guardando el hash (BCrypt) de su contrasena. Se separa de
+     * iniciarSesion porque debe existir desde el registro, no hasta el
+     * primer login.
      */
-    String iniciarSesion(String correoElectronico);
+    void registrarCredenciales(Cliente cliente, String passwordPlano);
+
+    /**
+     * Verifica correo + contrasena contra el hash guardado, emite un JWT y
+     * marca la sesion como activa.
+     */
+    String iniciarSesion(String correoElectronico, String passwordPlano);
 
     void cerrarSesion(Integer clienteId);
 

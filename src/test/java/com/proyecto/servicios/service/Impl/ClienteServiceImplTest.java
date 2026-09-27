@@ -16,6 +16,7 @@ import com.proyecto.servicios.repositorys.clientes.CuentaRepository;
 import com.proyecto.servicios.repositorys.clientes.DomicilioRepository;
 import com.proyecto.servicios.repositorys.clientes.SaldoRepository;
 import com.proyecto.servicios.service.CuentaService;
+import com.proyecto.servicios.service.LoginService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -52,6 +53,9 @@ class ClienteServiceImplTest {
     @Mock
     private CuentaService cuentaService;
 
+    @Mock
+    private LoginService loginService;
+
     @InjectMocks
     private ClienteServiceImpl clienteService;
 
@@ -61,6 +65,7 @@ class ClienteServiceImplTest {
         request.setCurp("CURP123456789012345".substring(0, 18));
         request.setRfc("RFC123456ABC");
         request.setCorreoElectronico("nuevo@correo.com");
+        request.setPassword("contrasena123");
         request.setDomicilio(new DomicilioRequest());
 
         Cliente clienteMapeado = new Cliente();
@@ -91,6 +96,8 @@ class ClienteServiceImplTest {
         verify(saldoRepository).save(saldoCaptor.capture());
         assertThat(saldoCaptor.getValue().getMonto()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(saldoCaptor.getValue().getTipoMovimiento()).isEqualTo("APERTURA");
+
+        verify(loginService).registrarCredenciales(clienteGuardado, "contrasena123");
     }
 
     @Test
@@ -163,6 +170,7 @@ class ClienteServiceImplTest {
         verify(clienteRepository).save(cliente);
         verify(clienteRepository, never()).delete(any());
         verify(clienteRepository, never()).deleteById(any());
+        verify(loginService).cerrarSesion(5);
     }
 
     @Test

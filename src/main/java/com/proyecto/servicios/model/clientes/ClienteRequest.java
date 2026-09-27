@@ -69,6 +69,10 @@ public class ClienteRequest {
     @Size(max = 100, message = "El correo electronico no puede exceder 100 caracteres")
     private String correoElectronico;
 
+    @NotBlank(message = "La contrasena es obligatoria")
+    @Size(min = 8, max = 100, message = "La contrasena debe tener al menos 8 caracteres")
+    private String password;
+
     @NotBlank(message = "El telefono movil es obligatorio")
     @Pattern(regexp = "^\\d{10}$", message = "El telefono movil debe contener exactamente 10 digitos")
     private String telefonoMovil;

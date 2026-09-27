@@ -19,6 +19,7 @@ import com.proyecto.servicios.repositorys.clientes.DomicilioRepository;
 import com.proyecto.servicios.repositorys.clientes.SaldoRepository;
 import com.proyecto.servicios.service.ClienteService;
 import com.proyecto.servicios.service.CuentaService;
+import com.proyecto.servicios.service.LoginService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,7 @@ public class ClienteServiceImpl implements ClienteService {
     private final SaldoRepository saldoRepository;
     private final ClienteMapper clienteMapper;
     private final CuentaService cuentaService;
+    private final LoginService loginService;
     private final SecureRandom generadorAleatorio = new SecureRandom();
 
     public ClienteServiceImpl(ClienteRepository clienteRepository,
@@ -48,11 +50,13 @@ public class ClienteServiceImpl implements ClienteService {
                                CuentaRepository cuentaRepository,
                                SaldoRepository saldoRepository,
                                ClienteMapper clienteMapper,
-                               CuentaService cuentaService) {
+                               CuentaService cuentaService,
+                               LoginService loginService) {
         this.clienteRepository = clienteRepository;
         this.domicilioRepository = domicilioRepository;
         this.cuentaRepository = cuentaRepository;
         this.saldoRepository = saldoRepository;
+        this.loginService = loginService;
         this.clienteMapper = clienteMapper;
         this.cuentaService = cuentaService;
     }
@@ -81,6 +85,8 @@ public class ClienteServiceImpl implements ClienteService {
         saldoInicial.setTipoMovimiento("APERTURA");
         saldoInicial.setDescripcion("Saldo inicial de apertura de cuenta");
         saldoRepository.save(saldoInicial);
+
+        loginService.registrarCredenciales(cliente, request.getPassword());
 
         log.info("Cliente registrado correctamente. id={}, cuenta={}", cliente.getId(), cuenta.getNumeroCuenta());
         return ensamblarRespuestaCompleta(cliente);
@@ -158,7 +164,8 @@ public class ClienteServiceImpl implements ClienteService {
         Cliente cliente = buscarPorId(id);
         cliente.setActivo(false);
         clienteRepository.save(cliente);
-        log.info("Cliente desactivado (baja logica). id={}", id);
+        loginService.cerrarSesion(id);
+        log.info("Cliente desactivado (baja logica) y sesion cerrada. id={}", id);
     }
 
     @Override

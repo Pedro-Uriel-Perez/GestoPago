@@ -2,7 +2,7 @@ package com.proyecto.servicios.service.Impl;
 
 import com.proyecto.servicios.entity.clientes.Cliente;
 import com.proyecto.servicios.entity.clientes.Login;
-import com.proyecto.servicios.exception.ClienteNoEncontradoException;
+import com.proyecto.servicios.exception.CredencialesInvalidasException;
 import com.proyecto.servicios.repositorys.clientes.ClienteRepository;
 import com.proyecto.servicios.repositorys.clientes.LoginRepository;
 import com.proyecto.servicios.security.JwtService;
@@ -10,11 +10,14 @@ import com.proyecto.servicios.service.LoginService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -23,6 +26,7 @@ public class LoginServiceImpl implements LoginService {
     private final ClienteRepository clienteRepository;
     private final LoginRepository loginRepository;
     private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Value("${security.session.inactividad-minutos}")
     private long inactividadMinutos;
@@ -37,17 +41,31 @@ public class LoginServiceImpl implements LoginService {
 
     @Override
     @Transactional
-    public String iniciarSesion(String correoElectronico) {
-        Cliente cliente = clienteRepository.findByCorreoElectronico(correoElectronico)
-                .orElseThrow(() -> new ClienteNoEncontradoException(
-                        "No existe un cliente con el correo " + correoElectronico));
-
-        String token = jwtService.generarToken(cliente.getId(), cliente.getCorreoElectronico());
-
-        Login login = loginRepository.findByClienteId(cliente.getId()).orElseGet(Login::new);
+    public void registrarCredenciales(Cliente cliente, String passwordPlano) {
+        Login login = new Login();
         login.setCliente(cliente);
         login.setCorreoLogin(cliente.getCorreoElectronico());
         login.setNombreCifrado(cliente.getNombre());
+        login.setPasswordHash(passwordEncoder.encode(passwordPlano));
+        login.setSesionActiva(false);
+        loginRepository.save(login);
+    }
+
+    @Override
+    @Transactional
+    public String iniciarSesion(String correoElectronico, String passwordPlano) {
+        Cliente cliente = clienteRepository.findByCorreoElectronico(correoElectronico)
+                .orElseThrow(() -> new CredencialesInvalidasException("Correo o contrasena incorrectos"));
+
+        Login login = loginRepository.findByClienteId(cliente.getId())
+                .orElseThrow(() -> new CredencialesInvalidasException("Correo o contrasena incorrectos"));
+
+        Optional.of(login.getPasswordHash())
+                .filter(hash -> passwordEncoder.matches(passwordPlano, hash))
+                .orElseThrow(() -> new CredencialesInvalidasException("Correo o contrasena incorrectos"));
+
+        String token = jwtService.generarToken(cliente.getId(), cliente.getCorreoElectronico());
+
         login.setJwtToken(token);
         login.setSesionActiva(true);
         login.setFechaUltimoAcceso(LocalDateTime.now());

@@ -57,6 +57,12 @@ public class GlobalExceptionHandler {
         return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(CredencialesInvalidasException.class)
+    public ResponseEntity<GenericResponse> handleCredencialesInvalidas(CredencialesInvalidasException ex) {
+        log.warn("Intento de login con credenciales invalidas");
+        return construirRespuesta(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
     private ResponseEntity<GenericResponse> construirRespuesta(HttpStatus status, String mensaje) {
         GenericResponse respuesta = new GenericResponse();
         respuesta.setCodigo(status.value());
