@@ -160,9 +160,10 @@ revertir. Cifrar además el hash con AES no agregaría seguridad real y
 complicaría la verificación sin necesidad.
 
 `POST /login` ahora exige `correoElectronico` + `password`. Si el correo no
-existe o la contraseña no coincide, responde igual (401,
-`CredencialesInvalidasException`) para no revelar si un correo está
-registrado.
+existe, la contraseña no coincide, o el cliente está dado de baja
+(`activo = false`), responde igual (401, `CredencialesInvalidasException`,
+mismo mensaje genérico) para no revelar si un correo está registrado ni si
+una cuenta en particular está desactivada.
 
 ### Inactividad de sesión (5 minutos)
 `LoginServiceImpl.cerrarSesionesInactivas()` corre en una tarea programada
@@ -226,8 +227,8 @@ el service — igual que el resto del proyecto:
 - `CuentaServiceImplTest`: saldo actual desde el historial, cuenta sin
   movimientos (saldo cero), cuenta no encontrada, historial completo.
 - `LoginServiceImplTest`: registro de credenciales (hash BCrypt, sesión
-  inactiva), inicio de sesión exitoso, contraseña incorrecta, correo no
-  registrado, cierre de sesión, cierre por inactividad.
+  inactiva), inicio de sesión exitoso, contraseña incorrecta, cliente dado
+  de baja, correo no registrado, cierre de sesión, cierre por inactividad.
 
 ## Pendiente / fuera de este alcance
 - Integrar de verdad una librería de reconocimiento facial (MediaPipe u

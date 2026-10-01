@@ -99,6 +99,22 @@ class LoginServiceImplTest {
     }
 
     @Test
+    void iniciarSesion_clienteDadoDeBaja_lanzaCredencialesInvalidasException() {
+        Cliente cliente = new Cliente();
+        cliente.setId(1);
+        cliente.setCorreoElectronico("cliente@correo.com");
+        cliente.setActivo(false);
+
+        when(clienteRepository.findByCorreoElectronico("cliente@correo.com")).thenReturn(Optional.of(cliente));
+
+        assertThatThrownBy(() -> loginService.iniciarSesion("cliente@correo.com", "contrasena123"))
+                .isInstanceOf(CredencialesInvalidasException.class);
+
+        verify(loginRepository, never()).findByClienteId(any());
+        verify(loginRepository, never()).save(any());
+    }
+
+    @Test
     void iniciarSesion_correoNoExiste_lanzaCredencialesInvalidasException() {
         when(clienteRepository.findByCorreoElectronico("no-existe@correo.com")).thenReturn(Optional.empty());
 

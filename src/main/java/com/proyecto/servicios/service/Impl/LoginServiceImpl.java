@@ -55,6 +55,7 @@ public class LoginServiceImpl implements LoginService {
     @Transactional
     public String iniciarSesion(String correoElectronico, String passwordPlano) {
         Cliente cliente = clienteRepository.findByCorreoElectronico(correoElectronico)
+                .filter(Cliente::getActivo)
                 .orElseThrow(() -> new CredencialesInvalidasException("Correo o contrasena incorrectos"));
 
         Login login = loginRepository.findByClienteId(cliente.getId())
