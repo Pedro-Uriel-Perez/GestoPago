@@ -144,6 +144,32 @@ runtime (`jjwt-impl`/`jjwt-jackson`) para la 0.11.5 — si Gradle resolvía la
 0.12.6, el JWT habría fallado en tiempo de ejecución por falta de
 implementación. Se dejó consistente en 0.11.5.
 
+### El JWT protege la API (no solo se emite)
+En una primera versión el JWT se emitía en `POST /login` pero ningún otro
+endpoint lo exigía — se podía llamar `GET /clientes` o `DELETE /clientes/{id}`
+sin token. Se agregó `spring-boot-starter-security` con:
+
+- **`JwtAuthenticationFilter`** (`security/`): lee el header
+  `Authorization: Bearer <token>`, valida la firma/expiración con
+  `JwtService`, y además verifica contra la tabla `logins` que
+  `sesion_activa = true` **y** que el token coincida con el guardado en
+  `jwt_token`. Esto es importante: sin ese segundo chequeo, cerrar sesión
+  (`POST /login/{id}/cerrar`) o el auto-logout por inactividad no tendrían
+  ningún efecto real sobre la API — el JWT seguiría siendo valido hasta su
+  propia expiración aunque la sesión ya estuviera cerrada.
+- **`SecurityConfig`** (`config/`): define qué rutas son públicas
+  (`POST /clientes` para poder registrarse, `POST /login`, Swagger, y los
+  endpoints de las tareas anteriores `/productos`, `/personas*`, que quedan
+  fuera de alcance de este enunciado) y cuáles exigen JWT válido
+  (`/clientes/**`, `/cuentas/**`, `/login/**` salvo el login mismo).
+- Las respuestas 401 usan el mismo formato `{codigo, mensaje}` que el resto
+  de la API (`GlobalExceptionHandler`), vía un `AuthenticationEntryPoint`
+  personalizado, en vez del 403/HTML por defecto de Spring Security.
+- `spring.autoconfigure.exclude` desactiva `UserDetailsServiceAutoConfiguration`:
+  sin esto, Spring genera un usuario en memoria con contraseña aleatoria al
+  arrancar (para HTTP Basic), que aquí no se usa para nada porque la
+  autenticación real es contra `logins`, no contra un `UserDetailsService`.
+
 ### Contraseña de login: hash de un solo sentido (BCrypt), no cifrado
 `ClienteRequest` ahora exige `password` (mínimo 8 caracteres) al registrar
 un cliente. `ClienteServiceImpl.crearCliente()` llama a
@@ -196,24 +222,28 @@ el service — igual que el resto del proyecto:
 (409 para duplicados, 404 para no encontrados).
 
 ## Endpoints
-| Método | Endpoint | Descripción |
-|---|---|---|
-| POST | `/clientes` | Registra cliente + domicilio + cuenta + saldo inicial |
-| GET | `/clientes` | Lista todos los clientes |
-| GET | `/clientes/{id}` | Cliente por id |
-| PUT | `/clientes/{id}` | Actualiza datos personales/contacto/domicilio/laborales |
-| DELETE | `/clientes/{id}` | Baja lógica (activo = false) |
-| GET | `/clientes/curp/{curp}` | Cliente por CURP |
-| GET | `/clientes/rfc/{rfc}` | Cliente por RFC |
-| GET | `/clientes/correo/{correo}` | Cliente por correo |
-| GET | `/clientes/cuenta/{numeroCuenta}` | Cliente por número de cuenta |
-| GET | `/clientes/activos` | Solo clientes activos |
-| GET | `/clientes/rango-fechas?desde=...&hasta=...` | Clientes registrados en un rango |
-| GET | `/cuentas/{numeroCuenta}` | Cuenta + saldo actual |
-| GET | `/cuentas/activas` | Cuentas con estatus ACTIVA |
-| GET | `/cuentas/{numeroCuenta}/saldos` | Historial de saldos |
-| POST | `/login` | Verifica correo + contraseña y emite un JWT |
-| POST | `/login/{clienteId}/cerrar` | Cierra la sesión manualmente |
+| Método | Endpoint | Descripción | Requiere JWT |
+|---|---|---|---|
+| POST | `/clientes` | Registra cliente + domicilio + cuenta + saldo inicial | No (hace falta antes de poder loguearse) |
+| GET | `/clientes` | Lista todos los clientes | Sí |
+| GET | `/clientes/{id}` | Cliente por id | Sí |
+| PUT | `/clientes/{id}` | Actualiza datos personales/contacto/domicilio/laborales | Sí |
+| DELETE | `/clientes/{id}` | Baja lógica (activo = false) | Sí |
+| GET | `/clientes/curp/{curp}` | Cliente por CURP | Sí |
+| GET | `/clientes/rfc/{rfc}` | Cliente por RFC | Sí |
+| GET | `/clientes/correo/{correo}` | Cliente por correo | Sí |
+| GET | `/clientes/cuenta/{numeroCuenta}` | Cliente por número de cuenta | Sí |
+| GET | `/clientes/activos` | Solo clientes activos | Sí |
+| GET | `/clientes/rango-fechas?desde=...&hasta=...` | Clientes registrados en un rango | Sí |
+| GET | `/cuentas/{numeroCuenta}` | Cuenta + saldo actual | Sí |
+| GET | `/cuentas/activas` | Cuentas con estatus ACTIVA | Sí |
+| GET | `/cuentas/{numeroCuenta}/saldos` | Historial de saldos | Sí |
+| POST | `/login` | Verifica correo + contraseña y emite un JWT | No |
+| POST | `/login/{clienteId}/cerrar` | Cierra la sesión manualmente | Sí |
+
+Para probar en Swagger un endpoint que exige JWT: primero `POST /login`,
+copiar el valor de `jwt` de la respuesta, y pegarlo en el botón
+**Authorize** (candado) con el formato `Bearer <token>`.
 
 ## Pruebas unitarias
 - `AesEncryptionUtilTest`: cifrado/descifrado de texto y de `double[]`,
@@ -229,6 +259,74 @@ el service — igual que el resto del proyecto:
 - `LoginServiceImplTest`: registro de credenciales (hash BCrypt, sesión
   inactiva), inicio de sesión exitoso, contraseña incorrecta, cliente dado
   de baja, correo no registrado, cierre de sesión, cierre por inactividad.
+
+## Evidencias de pruebas realizadas
+Ejecutado contra la API real (Postgres local, `./gradlew bootRun`) el
+2026-10-02, con `curl`. Cada petición usa un CURP/RFC/correo generados al
+vuelo para no chocar con datos de corridas anteriores.
+
+**1. `GET /clientes/activos` sin token → 401 (ruta protegida, sin credenciales)**
+```
+{"codigo":401,"mensaje":"Token invalido, ausente o sesion expirada"}
+```
+
+**2. `POST /clientes` sin token (pública) → 201, crea cliente + domicilio + cuenta**
+```
+{"id":3,"nombre":"Ana", ... ,"cuenta":{"id":3,"numeroCuenta":"7877870182","estatus":"ACTIVA", ...,"saldoActual":0}}
+```
+
+**3. `GET /clientes/{id}` sin token → 401**
+```
+{"codigo":401,"mensaje":"Token invalido, ausente o sesion expirada"}
+```
+
+**4. `POST /login` con contraseña incorrecta → 401 genérico**
+```
+{"codigo":401,"mensaje":"Correo o contrasena incorrectos"}
+```
+
+**5. `POST /login` correcto → 200, emite JWT**
+```
+{"jwt":"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIzIiwi...rf9rBo"}
+```
+
+**6. `GET /clientes/{id}` con el JWT del paso 5 → 200**
+```
+{"id":3,"nombre":"Ana", ... }
+```
+
+**7. `GET /cuentas/{numeroCuenta}` con el mismo JWT → 200**
+```
+{"id":3,"numeroCuenta":"7877870182","estatus":"ACTIVA", ...,"saldoActual":0.00}
+```
+
+**8. `GET /clientes/{id}` con un token inventado (`Bearer token.invalido.falso`) → 401**
+```
+{"codigo":401,"mensaje":"Token invalido, ausente o sesion expirada"}
+```
+
+**9. `POST /login/{id}/cerrar` con el JWT válido → 204 (cierra la sesión)**
+
+**10. `GET /clientes/{id}` reusando el MISMO JWT ya cerrado → 401**
+```
+{"codigo":401,"mensaje":"Token invalido, ausente o sesion expirada"}
+```
+Confirma que `JwtAuthenticationFilter` valida contra `sesion_activa` en la
+BD, no solo la firma/expiración del token — un JWT técnicamente válido pero
+de una sesión cerrada ya no sirve.
+
+**11. `DELETE /clientes/{id}` (con un login nuevo) → 204, baja lógica**
+
+**12. `POST /login` del cliente recién dado de baja → 401**
+```
+{"codigo":401,"mensaje":"Correo o contrasena incorrectos"}
+```
+Confirma el bloqueo de login para clientes con `activo=false`, con el mismo
+mensaje genérico que una contraseña incorrecta (no revela el estado de la
+cuenta).
+
+**Pruebas unitarias**: 39 pruebas, `./gradlew test` → `BUILD SUCCESSFUL`
+(ver sección "Pruebas unitarias" arriba para el detalle por clase).
 
 ## Pendiente / fuera de este alcance
 - Integrar de verdad una librería de reconocimiento facial (MediaPipe u
