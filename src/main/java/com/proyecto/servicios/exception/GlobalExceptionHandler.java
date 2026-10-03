@@ -1,5 +1,6 @@
 package com.proyecto.servicios.exception;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.proyecto.servicios.model.GenericResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -45,8 +46,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<GenericResponse> handleJsonNoLegible(HttpMessageNotReadableException ex) {
         String mensaje = Optional.ofNullable(ex.getCause())
-                .filter(InvalidFormatException.class::isInstance)
-                .map(InvalidFormatException.class::cast)
+                .filter(JsonMappingException.class::isInstance)
+                .map(JsonMappingException.class::cast)
                 .map(this::mensajeDeCampoInvalido)
                 .orElse("El cuerpo de la peticion tiene un formato invalido");
         log.warn("JSON invalido en el request: {}", ex.getMessage());
@@ -83,11 +84,16 @@ public class GlobalExceptionHandler {
         return construirRespuesta(HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 
-    private String mensajeDeCampoInvalido(InvalidFormatException ex) {
+    private String mensajeDeCampoInvalido(JsonMappingException ex) {
         String campo = ex.getPath().isEmpty()
                 ? "desconocido"
                 : ex.getPath().get(ex.getPath().size() - 1).getFieldName();
-        return "El campo '" + campo + "' tiene un formato invalido: '" + ex.getValue() + "'";
+
+        return Optional.of(ex)
+                .filter(InvalidFormatException.class::isInstance)
+                .map(InvalidFormatException.class::cast)
+                .map(ife -> "El campo '" + campo + "' tiene un formato invalido: '" + ife.getValue() + "'")
+                .orElse("El campo '" + campo + "' tiene un valor invalido");
     }
 
     private ResponseEntity<GenericResponse> construirRespuesta(HttpStatus status, String mensaje) {
