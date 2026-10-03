@@ -1,14 +1,17 @@
 package com.proyecto.servicios.exception;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.proyecto.servicios.model.GenericResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -36,6 +39,17 @@ public class GlobalExceptionHandler {
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
         log.warn("Error de validacion en el request: {}", mensaje);
+        return construirRespuesta(HttpStatus.BAD_REQUEST, mensaje);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<GenericResponse> handleJsonNoLegible(HttpMessageNotReadableException ex) {
+        String mensaje = Optional.ofNullable(ex.getCause())
+                .filter(InvalidFormatException.class::isInstance)
+                .map(InvalidFormatException.class::cast)
+                .map(this::mensajeDeCampoInvalido)
+                .orElse("El cuerpo de la peticion tiene un formato invalido");
+        log.warn("JSON invalido en el request: {}", ex.getMessage());
         return construirRespuesta(HttpStatus.BAD_REQUEST, mensaje);
     }
 
@@ -67,6 +81,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<GenericResponse> handleCredencialesInvalidas(CredencialesInvalidasException ex) {
         log.warn("Intento de login con credenciales invalidas");
         return construirRespuesta(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    private String mensajeDeCampoInvalido(InvalidFormatException ex) {
+        String campo = ex.getPath().isEmpty()
+                ? "desconocido"
+                : ex.getPath().get(ex.getPath().size() - 1).getFieldName();
+        return "El campo '" + campo + "' tiene un formato invalido: '" + ex.getValue() + "'";
     }
 
     private ResponseEntity<GenericResponse> construirRespuesta(HttpStatus status, String mensaje) {
