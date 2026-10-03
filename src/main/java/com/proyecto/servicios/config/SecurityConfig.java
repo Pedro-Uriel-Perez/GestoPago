@@ -31,7 +31,8 @@ public class SecurityConfig {
 
     private static final String[] RUTAS_PUBLICAS = {
             "/productos", "/personas", "/personasActualiza", "/personasElimina",
-            "/actuator/**", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**"
+            "/actuator/**", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
+            "/nacionalidades"
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;

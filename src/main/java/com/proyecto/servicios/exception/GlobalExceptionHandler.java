@@ -57,6 +57,12 @@ public class GlobalExceptionHandler {
         return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(NacionalidadNoEncontradaException.class)
+    public ResponseEntity<GenericResponse> handleNacionalidadNoEncontrada(NacionalidadNoEncontradaException ex) {
+        log.warn("Nacionalidad no encontrada: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
     @ExceptionHandler(CredencialesInvalidasException.class)
     public ResponseEntity<GenericResponse> handleCredencialesInvalidas(CredencialesInvalidasException ex) {
         log.warn("Intento de login con credenciales invalidas");

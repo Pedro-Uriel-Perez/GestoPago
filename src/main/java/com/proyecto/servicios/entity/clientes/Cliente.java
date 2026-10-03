@@ -42,8 +42,9 @@ public class Cliente {
     @Column(name = "sexo", nullable = false, columnDefinition = "TEXT")
     private String sexo;
 
-    @Column(name = "nacionalidad", nullable = false, columnDefinition = "TEXT")
-    private String nacionalidad;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "nacionalidad_id", nullable = false)
+    private Nacionalidad nacionalidad;
 
     @Column(name = "estado_civil", nullable = false, columnDefinition = "TEXT")
     private String estadoCivil;

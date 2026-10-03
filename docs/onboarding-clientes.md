@@ -15,6 +15,7 @@ erDiagram
     CLIENTES ||--o| CUENTAS : "tiene"
     CLIENTES ||--o| LOGINS : "tiene"
     CUENTAS ||--o{ SALDOS : "historial"
+    NACIONALIDADES ||--o{ CLIENTES : "catalogo de"
 
     CLIENTES {
         int id PK
@@ -26,7 +27,7 @@ erDiagram
         text curp UK
         text rfc UK
         text sexo
-        text nacionalidad
+        int nacionalidad_id FK
         text estado_civil
         text correo_electronico UK
         text telefono_movil
@@ -81,13 +82,19 @@ erDiagram
         timestamp fecha_ultimo_acceso
         timestamp fecha_creacion
     }
+
+    NACIONALIDADES {
+        int id PK
+        text nombre UK
+    }
 ```
 
 ## Script de creación de base de datos
 Migraciones Flyway (`src/main/resources/db/migration/`):
 `V4__create_clientes.sql`, `V5__create_domicilios.sql`,
 `V6__create_cuentas.sql`, `V7__create_saldos.sql`, `V8__create_logins.sql`,
-`V9__add_password_hash_to_logins.sql`.
+`V9__add_password_hash_to_logins.sql`,
+`V10__create_nacionalidades_catalogo.sql`.
 
 ## Decisiones de diseño y por qué
 
@@ -103,6 +110,27 @@ Migraciones Flyway (`src/main/resources/db/migration/`):
 - **Campos categóricos** (`sexo`, `estado_civil`, `estatus`, `tipo_movimiento`)
   → `TEXT` + `CHECK constraint` en vez de `ENUM` de Postgres: más simple y
   no requiere `ALTER TYPE` para agregar valores nuevos después.
+
+### Nacionalidad como catálogo (tabla `nacionalidades`), no texto libre
+`nacionalidad` empezó como `TEXT NOT NULL` sin ninguna restricción — cualquier
+cadena no vacía pasaba. Se normalizó a una tabla catálogo real:
+`nacionalidades(id, nombre)`, poblada con los valores más comunes para un
+banco mexicano (mexicana, estadounidense, canadiense, etc., más `OTRA` como
+comodín), y `clientes` ahora tiene `nacionalidad_id` como FK en vez del
+texto. A diferencia de `sexo`/`estado_civil` (un `CHECK` con 2-5 valores
+fijos escritos en la restricción), una tabla catálogo aparte tiene sentido
+aquí porque la lista es más larga y conceptualmente son "datos", no una
+regla de negocio fija — se podrían agregar nacionalidades sin tocar el
+esquema.
+
+`ClienteRequest`/`ClienteActualizaRequest` ahora piden `nacionalidadId`
+(no el texto); el servicio valida que exista en el catálogo
+(`NacionalidadNoEncontradaException`, 404, si no) y lo resuelve antes de
+guardar. `ClienteResponse` devuelve ambos: `nacionalidadId` y `nacionalidad`
+(el nombre legible), para no obligar al consumidor de la API a hacer un
+segundo lookup solo para mostrar el dato. `GET /nacionalidades` expone el
+catálogo completo — es público (como `POST /clientes`), porque hace falta
+conocer los ids válidos antes de poder registrar un cliente.
 
 ### `saldos` como historial (1:N), no una columna en `cuentas`
 Cada movimiento de saldo (apertura, depósito, retiro, ajuste) es una fila
@@ -240,6 +268,7 @@ el service — igual que el resto del proyecto:
 | GET | `/cuentas/{numeroCuenta}/saldos` | Historial de saldos | Sí |
 | POST | `/login` | Verifica correo + contraseña y emite un JWT | No |
 | POST | `/login/{clienteId}/cerrar` | Cierra la sesión manualmente | Sí |
+| GET | `/nacionalidades` | Catálogo de nacionalidades (id + nombre) | No |
 
 Para probar en Swagger un endpoint que exige JWT: primero `POST /login`,
 copiar el valor de `jwt` de la respuesta, y pegarlo en el botón
@@ -259,6 +288,8 @@ copiar el valor de `jwt` de la respuesta, y pegarlo en el botón
 - `LoginServiceImplTest`: registro de credenciales (hash BCrypt, sesión
   inactiva), inicio de sesión exitoso, contraseña incorrecta, cliente dado
   de baja, correo no registrado, cierre de sesión, cierre por inactividad.
+- `NacionalidadServiceImplTest`: listado completo del catálogo, búsqueda por
+  id existente, id inexistente (`NacionalidadNoEncontradaException`).
 
 ## Evidencias de pruebas realizadas
 Ejecutado contra la API real (Postgres local, `./gradlew bootRun`) el
@@ -325,7 +356,7 @@ Confirma el bloqueo de login para clientes con `activo=false`, con el mismo
 mensaje genérico que una contraseña incorrecta (no revela el estado de la
 cuenta).
 
-**Pruebas unitarias**: 39 pruebas, `./gradlew test` → `BUILD SUCCESSFUL`
+**Pruebas unitarias**: 42 pruebas, `./gradlew test` → `BUILD SUCCESSFUL`
 (ver sección "Pruebas unitarias" arriba para el detalle por clase).
 
 ## Pendiente / fuera de este alcance

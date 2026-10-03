@@ -3,6 +3,7 @@ package com.proyecto.servicios.service.Impl;
 import com.proyecto.servicios.entity.clientes.Cliente;
 import com.proyecto.servicios.entity.clientes.Cuenta;
 import com.proyecto.servicios.entity.clientes.Domicilio;
+import com.proyecto.servicios.entity.clientes.Nacionalidad;
 import com.proyecto.servicios.exception.ClienteNoEncontradoException;
 import com.proyecto.servicios.exception.ClienteYaRegistradoException;
 import com.proyecto.servicios.exception.CurpDuplicadaException;
@@ -17,6 +18,7 @@ import com.proyecto.servicios.repositorys.clientes.DomicilioRepository;
 import com.proyecto.servicios.repositorys.clientes.SaldoRepository;
 import com.proyecto.servicios.service.CuentaService;
 import com.proyecto.servicios.service.LoginService;
+import com.proyecto.servicios.service.NacionalidadService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -56,6 +58,9 @@ class ClienteServiceImplTest {
     @Mock
     private LoginService loginService;
 
+    @Mock
+    private NacionalidadService nacionalidadService;
+
     @InjectMocks
     private ClienteServiceImpl clienteService;
 
@@ -66,6 +71,7 @@ class ClienteServiceImplTest {
         request.setRfc("RFC123456ABC");
         request.setCorreoElectronico("nuevo@correo.com");
         request.setPassword("contrasena123");
+        request.setNacionalidadId(1);
         request.setDomicilio(new DomicilioRequest());
 
         Cliente clienteMapeado = new Cliente();
@@ -78,6 +84,7 @@ class ClienteServiceImplTest {
         when(clienteRepository.findByRfc(request.getRfc())).thenReturn(Optional.empty());
         when(clienteRepository.findByCorreoElectronico(request.getCorreoElectronico())).thenReturn(Optional.empty());
         when(clienteMapper.toEntity(request)).thenReturn(clienteMapeado);
+        when(nacionalidadService.buscarPorId(1)).thenReturn(new Nacionalidad());
         when(clienteRepository.save(clienteMapeado)).thenReturn(clienteGuardado);
         when(clienteMapper.toEntity(request.getDomicilio())).thenReturn(domicilioMapeado);
         when(cuentaRepository.existsByNumeroCuenta(any())).thenReturn(false);

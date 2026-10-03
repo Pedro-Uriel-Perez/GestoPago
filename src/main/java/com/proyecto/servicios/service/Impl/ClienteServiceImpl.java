@@ -20,6 +20,7 @@ import com.proyecto.servicios.repositorys.clientes.SaldoRepository;
 import com.proyecto.servicios.service.ClienteService;
 import com.proyecto.servicios.service.CuentaService;
 import com.proyecto.servicios.service.LoginService;
+import com.proyecto.servicios.service.NacionalidadService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,7 @@ public class ClienteServiceImpl implements ClienteService {
     private final ClienteMapper clienteMapper;
     private final CuentaService cuentaService;
     private final LoginService loginService;
+    private final NacionalidadService nacionalidadService;
     private final SecureRandom generadorAleatorio = new SecureRandom();
 
     public ClienteServiceImpl(ClienteRepository clienteRepository,
@@ -51,7 +53,8 @@ public class ClienteServiceImpl implements ClienteService {
                                SaldoRepository saldoRepository,
                                ClienteMapper clienteMapper,
                                CuentaService cuentaService,
-                               LoginService loginService) {
+                               LoginService loginService,
+                               NacionalidadService nacionalidadService) {
         this.clienteRepository = clienteRepository;
         this.domicilioRepository = domicilioRepository;
         this.cuentaRepository = cuentaRepository;
@@ -59,6 +62,7 @@ public class ClienteServiceImpl implements ClienteService {
         this.loginService = loginService;
         this.clienteMapper = clienteMapper;
         this.cuentaService = cuentaService;
+        this.nacionalidadService = nacionalidadService;
     }
 
     @Override
@@ -68,7 +72,9 @@ public class ClienteServiceImpl implements ClienteService {
 
         validarUnicidad(request.getCurp(), request.getRfc(), request.getCorreoElectronico());
 
-        Cliente cliente = clienteRepository.save(clienteMapper.toEntity(request));
+        Cliente clienteMapeado = clienteMapper.toEntity(request);
+        clienteMapeado.setNacionalidad(nacionalidadService.buscarPorId(request.getNacionalidadId()));
+        Cliente cliente = clienteRepository.save(clienteMapeado);
 
         Domicilio domicilio = clienteMapper.toEntity(request.getDomicilio());
         domicilio.setCliente(cliente);
@@ -146,6 +152,7 @@ public class ClienteServiceImpl implements ClienteService {
                 });
 
         clienteMapper.actualizarEntity(request, cliente);
+        cliente.setNacionalidad(nacionalidadService.buscarPorId(request.getNacionalidadId()));
         clienteRepository.save(cliente);
 
         Domicilio domicilio = domicilioRepository.findByClienteId(id)

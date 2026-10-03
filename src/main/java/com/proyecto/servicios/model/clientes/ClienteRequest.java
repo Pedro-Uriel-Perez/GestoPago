@@ -55,8 +55,8 @@ public class ClienteRequest {
     @Pattern(regexp = "^(M|F)$", message = "El sexo debe ser 'M' o 'F'")
     private String sexo;
 
-    @NotBlank(message = "La nacionalidad es obligatoria")
-    private String nacionalidad;
+    @NotNull(message = "La nacionalidad es obligatoria")
+    private Integer nacionalidadId;
 
     @NotBlank(message = "El estado civil es obligatorio")
     @Pattern(

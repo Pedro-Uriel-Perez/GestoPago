@@ -24,6 +24,7 @@ public interface ClienteMapper {
     @Mapping(target = "activo", ignore = true)
     @Mapping(target = "fechaRegistro", ignore = true)
     @Mapping(target = "fechaActualizacion", ignore = true)
+    @Mapping(target = "nacionalidad", ignore = true)
     Cliente toEntity(ClienteRequest request);
 
     @Mapping(target = "id", ignore = true)
@@ -33,10 +34,13 @@ public interface ClienteMapper {
     @Mapping(target = "activo", ignore = true)
     @Mapping(target = "fechaRegistro", ignore = true)
     @Mapping(target = "fechaActualizacion", ignore = true)
+    @Mapping(target = "nacionalidad", ignore = true)
     void actualizarEntity(ClienteActualizaRequest request, @MappingTarget Cliente cliente);
 
     @Mapping(target = "domicilio", ignore = true)
     @Mapping(target = "cuenta", ignore = true)
+    @Mapping(target = "nacionalidadId", source = "nacionalidad.id")
+    @Mapping(target = "nacionalidad", source = "nacionalidad.nombre")
     ClienteResponse toResponse(Cliente cliente);
 
     List<ClienteResponse> toResponseList(List<Cliente> clientes);

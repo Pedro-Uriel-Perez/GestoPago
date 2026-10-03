@@ -22,6 +22,7 @@ public class ClienteResponse {
     private String curp;
     private String rfc;
     private String sexo;
+    private Integer nacionalidadId;
     private String nacionalidad;
     private String estadoCivil;
     private String correoElectronico;
