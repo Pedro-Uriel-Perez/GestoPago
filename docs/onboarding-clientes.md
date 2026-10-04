@@ -229,25 +229,49 @@ false`, borra el JWT).
 ## Reglas de negocio y validaciones
 Todas las validaciones viven en los DTOs `*Request` (Bean Validation), no en
 el service — igual que el resto del proyecto:
+- Nombre/segundo nombre/apellidos: `@Size(min = 3, max = 50)` + `@Pattern`
+  (solo letras y espacios). El mínimo se subió de 2 a 3 — con 2 se colaban
+  nombres como `"Ca"`.
 - Mayoría de edad: anotación personalizada `@EdadMinima(18)` (con
   `@PastOrPresent` para la fecha no futura).
 - CURP/RFC: `@Pattern` con la expresión regular oficial.
 - Teléfono: `@Pattern` de 10 dígitos exactos.
 - Código postal: `@Pattern` de 5 dígitos exactos.
-- Ingreso mensual: `@DecimalMin("0.01")`.
+- Ingreso mensual: `@DecimalMin("0.01")`, **y además debe llegar como número
+  JSON real**, no como texto (ver "JSON mal formado" abajo).
 - Unicidad de CURP/RFC/correo: se valida en el service (no es posible con
   Bean Validation, requiere consultar la base de datos), lanzando
   excepciones tipadas (`CurpDuplicadaException`, `RfcDuplicadoException`,
   `ClienteYaRegistradoException`) resueltas por `GlobalExceptionHandler` —
   sin `if`, usando `Optional.ifPresent(...)` para disparar la excepción.
+- Nacionalidad válida: `nacionalidadId` debe existir en el catálogo
+  (`NacionalidadNoEncontradaException`, 404, si no) — se valida en el
+  service por la misma razón que CURP/RFC/correo (requiere la BD).
 - No se permite modificar CURP/RFC/número de cuenta: `ClienteActualizaRequest`
   simplemente no incluye esos campos.
 
+### JSON mal formado: 400 limpio, no un stack trace
+Antes, un valor que Jackson no podía convertir al tipo del campo (una fecha
+con formato inválido, o un número/booleano mandado entre comillas como
+texto) tronaba **antes** de que Bean Validation llegara a correr, y Spring
+respondía con su página de error por defecto — stack trace completo,
+exponiendo rutas internas del servidor. Dos cambios lo resuelven:
+
+- **`JacksonConfig`**: desactiva la conversión automática de string a
+  número/booleano (`"ingresoMensual": "19000"` ya no se acepta como si
+  fuera `19000`; debe llegar como número JSON real).
+- **`GlobalExceptionHandler.handleJsonNoLegible`**: atrapa
+  `HttpMessageNotReadableException` y responde 400 con el mismo formato
+  `{codigo, mensaje}` del resto de la API, indicando qué campo vino mal
+  cuando Jackson lo sabe decir (ej. `"El campo 'fechaNacimiento' tiene un
+  formato invalido: '1999-11/08'"`).
+
 ## Excepciones personalizadas
 `ClienteNoEncontradoException`, `CuentaNoEncontradaException`,
-`CurpDuplicadaException` y `RfcDuplicadoException` (ambas heredan de
-`ClienteYaRegistradoException`), manejadas en `GlobalExceptionHandler`
-(409 para duplicados, 404 para no encontrados).
+`CurpDuplicadaException`, `RfcDuplicadoException` (ambas heredan de
+`ClienteYaRegistradoException`) y `NacionalidadNoEncontradaException`,
+manejadas en `GlobalExceptionHandler` (409 para duplicados, 404 para no
+encontrados, 400 para JSON mal formado o errores de Bean Validation).
 
 ## Endpoints
 | Método | Endpoint | Descripción | Requiere JWT |
@@ -290,6 +314,11 @@ copiar el valor de `jwt` de la respuesta, y pegarlo en el botón
   de baja, correo no registrado, cierre de sesión, cierre por inactividad.
 - `NacionalidadServiceImplTest`: listado completo del catálogo, búsqueda por
   id existente, id inexistente (`NacionalidadNoEncontradaException`).
+- `GlobalExceptionHandlerTest`: errores de Bean Validation (400 con todos los
+  mensajes), JSON mal formado con campo y valor identificables (400), JSON
+  mal formado sin causa reconocible (400 genérico), y los 404/409/401 de
+  cada excepción de negocio (cliente/cuenta/nacionalidad no encontrados,
+  cliente duplicado, credenciales inválidas).
 
 ## Evidencias de pruebas realizadas
 Ejecutado contra la API real (Postgres local, `./gradlew bootRun`) el
@@ -356,7 +385,39 @@ Confirma el bloqueo de login para clientes con `activo=false`, con el mismo
 mensaje genérico que una contraseña incorrecta (no revela el estado de la
 cuenta).
 
-**Pruebas unitarias**: 42 pruebas, `./gradlew test` → `BUILD SUCCESSFUL`
+**13. `GET /nacionalidades` sin token (pública) → 200, catálogo completo**
+```
+[{"id":1,"nombre":"MEXICANA"},{"id":2,"nombre":"ESTADOUNIDENSE"}, ... ,{"id":14,"nombre":"OTRA"}]
+```
+
+**14. `POST /clientes` con `nacionalidadId` inexistente (999) → 404**
+```
+{"codigo":404,"mensaje":"No existe una nacionalidad con id 999"}
+```
+
+**15. `POST /clientes` con `nombre` de 2 letras ("Ca") → 400**
+```
+{"codigo":400,"mensaje":"El nombre debe tener entre 3 y 50 caracteres"}
+```
+
+**16. `POST /clientes` con `fechaNacimiento` mal formada ("1999-11/08") → 400, sin stack trace**
+```
+{"codigo":400,"mensaje":"El campo 'fechaNacimiento' tiene un formato invalido: '1999-11/08'"}
+```
+
+**17. `POST /clientes` con `ingresoMensual` mandado como texto ("19000", entre comillas) → 400**
+```
+{"codigo":400,"mensaje":"El campo 'ingresoMensual' tiene un valor invalido"}
+```
+Antes de este fix, Jackson convertía el string silenciosamente a número y
+lo aceptaba como si nada; ahora exige que el dato llegue con el tipo JSON
+correcto.
+
+**18. El mismo payload del caso 17, pero con `ingresoMensual: 19000` (número real, sin comillas) → 201**
+Confirma que el fix no afecta el caso correcto, solo rechaza el mal
+formado.
+
+**Pruebas unitarias**: 51 pruebas, `./gradlew test` → `BUILD SUCCESSFUL`
 (ver sección "Pruebas unitarias" arriba para el detalle por clase).
 
 ## Pendiente / fuera de este alcance
