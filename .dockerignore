@@ -1,0 +1,10 @@
+.git
+.gitignore
+.gradle
+.idea
+.claude
+bin
+build
+docs
+README.md
+*.log
