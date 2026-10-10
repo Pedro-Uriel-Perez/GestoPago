@@ -1,0 +1,89 @@
+package com.proyecto.servicios.entity.clientes;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "clientes")
+@Getter
+@Setter
+public class Cliente {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @Column(name = "nombre", nullable = false, columnDefinition = "TEXT")
+    private String nombre;
+
+    @Column(name = "segundo_nombre", columnDefinition = "TEXT")
+    private String segundoNombre;
+
+    @Column(name = "apellido_paterno", nullable = false, columnDefinition = "TEXT")
+    private String apellidoPaterno;
+
+    @Column(name = "apellido_materno", nullable = false, columnDefinition = "TEXT")
+    private String apellidoMaterno;
+
+    @Column(name = "fecha_nacimiento", nullable = false)
+    private LocalDate fechaNacimiento;
+
+    @Column(name = "curp", nullable = false, unique = true, columnDefinition = "TEXT")
+    private String curp;
+
+    @Column(name = "rfc", nullable = false, unique = true, columnDefinition = "TEXT")
+    private String rfc;
+
+    @Column(name = "sexo", nullable = false, columnDefinition = "TEXT")
+    private String sexo;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "nacionalidad_id", nullable = false)
+    private Nacionalidad nacionalidad;
+
+    @Column(name = "estado_civil", nullable = false, columnDefinition = "TEXT")
+    private String estadoCivil;
+
+    @Column(name = "correo_electronico", nullable = false, unique = true, columnDefinition = "TEXT")
+    private String correoElectronico;
+
+    @Column(name = "telefono_movil", nullable = false, columnDefinition = "TEXT")
+    private String telefonoMovil;
+
+    @Column(name = "telefono_alternativo", columnDefinition = "TEXT")
+    private String telefonoAlternativo;
+
+    @Column(name = "ocupacion", nullable = false, columnDefinition = "TEXT")
+    private String ocupacion;
+
+    @Column(name = "empresa", nullable = false, columnDefinition = "TEXT")
+    private String empresa;
+
+    @Column(name = "ingreso_mensual", nullable = false, precision = 12, scale = 2)
+    private BigDecimal ingresoMensual;
+
+    @Column(name = "activo", nullable = false)
+    private Boolean activo = true;
+
+    @Column(name = "fecha_registro", nullable = false, updatable = false)
+    private LocalDateTime fechaRegistro;
+
+    @Column(name = "fecha_actualizacion", nullable = false)
+    private LocalDateTime fechaActualizacion;
+
+    @PrePersist
+    void alCrear() {
+        fechaRegistro = LocalDateTime.now();
+        fechaActualizacion = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    void alActualizar() {
+        fechaActualizacion = LocalDateTime.now();
+    }
+}

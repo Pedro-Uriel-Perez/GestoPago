@@ -32,6 +32,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-cache'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-freemarker'
     //Documentation y APIs
 
@@ -47,7 +48,6 @@ dependencies {
     implementation 'io.lettuce:lettuce-core:6.5.1.RELEASE'
     //Seguridad
     //implementation 'io.jsonwebtoken:jjwt:0.9.1'
-    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
     implementation 'com.auth0:jwks-rsa:0.22.1'
     implementation 'com.auth0:java-jwt:4.4.0'
     //Utilerias Apache Commons

@@ -5,6 +5,10 @@ build/
 !**/src/test/**/build/
 .kotlin
 
+### JVM crash dumps (Gradle Daemon, etc.) ###
+hs_err_pid*.log
+replay_pid*.log
+
 ### IntelliJ IDEA ###
 .idea/modules.xml
 .idea/jarRepositories.xml
