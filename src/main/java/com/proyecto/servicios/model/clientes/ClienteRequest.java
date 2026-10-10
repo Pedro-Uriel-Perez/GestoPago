@@ -1,6 +1,7 @@
 package com.proyecto.servicios.model.clientes;
 
 import com.proyecto.servicios.validation.EdadMinima;
+import com.proyecto.servicios.validation.PatronesValidacion;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
@@ -40,15 +41,11 @@ public class ClienteRequest {
     private LocalDate fechaNacimiento;
 
     @NotBlank(message = "La CURP es obligatoria")
-    @Pattern(
-            regexp = "^[A-Z][AEIOU][A-Z]{2}\\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\\d|3[01])[HM](AS|BC|BS|CC|CL|CM|CS|CH|DF|DG|GT|GR|HG|JC|MC|MN|MS|NT|NL|OC|PL|QO|QR|SP|SL|SR|TC|TL|TS|VZ|YN|ZS|NE)[B-DF-HJ-NP-TV-Z]{3}[A-Z\\d]\\d$",
-            message = "La CURP no tiene un formato valido")
+    @Pattern(regexp = PatronesValidacion.CURP, message = "La CURP no tiene un formato valido")
     private String curp;
 
     @NotBlank(message = "El RFC es obligatorio")
-    @Pattern(
-            regexp = "^[A-ZÑ&]{3,4}\\d{6}[A-Z0-9]{3}$",
-            message = "El RFC no tiene un formato valido")
+    @Pattern(regexp = PatronesValidacion.RFC, message = "El RFC no tiene un formato valido")
     private String rfc;
 
     @NotBlank(message = "El sexo es obligatorio")

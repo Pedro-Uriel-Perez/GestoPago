@@ -6,6 +6,7 @@ import com.proyecto.servicios.entity.clientes.Domicilio;
 import com.proyecto.servicios.entity.clientes.Nacionalidad;
 import com.proyecto.servicios.exception.ClienteNoEncontradoException;
 import com.proyecto.servicios.exception.ClienteYaRegistradoException;
+import com.proyecto.servicios.exception.CriterioBusquedaInvalidoException;
 import com.proyecto.servicios.exception.CurpDuplicadaException;
 import com.proyecto.servicios.exception.RfcDuplicadoException;
 import com.proyecto.servicios.mapper.ClienteMapper;
@@ -186,5 +187,39 @@ class ClienteServiceImplTest {
 
         assertThatThrownBy(() -> clienteService.obtenerPorNumeroCuenta("0000000000"))
                 .isInstanceOf(com.proyecto.servicios.exception.CuentaNoEncontradaException.class);
+    }
+
+    @Test
+    void buscarPorCriterio_soloConCurp_delegaEnObtenerPorCurp() {
+        Cliente cliente = new Cliente();
+        cliente.setId(7);
+        when(clienteRepository.findByCurp("CURP-X")).thenReturn(Optional.of(cliente));
+        when(clienteMapper.toResponse(cliente)).thenReturn(new ClienteResponse());
+        when(domicilioRepository.findByClienteId(7)).thenReturn(Optional.empty());
+        when(cuentaRepository.findByClienteId(7)).thenReturn(Optional.empty());
+
+        ClienteResponse resultado = clienteService.buscarPorCriterio("CURP-X", null, null, null);
+
+        assertThat(resultado).isNotNull();
+        verify(clienteRepository).findByCurp("CURP-X");
+        verify(clienteRepository, never()).findByRfc(any());
+        verify(clienteRepository, never()).findByCorreoElectronico(any());
+    }
+
+    @Test
+    void buscarPorCriterio_sinNingunCriterio_lanzaCriterioBusquedaInvalidoException() {
+        assertThatThrownBy(() -> clienteService.buscarPorCriterio(null, null, null, null))
+                .isInstanceOf(CriterioBusquedaInvalidoException.class);
+
+        verify(clienteRepository, never()).findByCurp(any());
+    }
+
+    @Test
+    void buscarPorCriterio_conDosCriteriosALaVez_lanzaCriterioBusquedaInvalidoException() {
+        assertThatThrownBy(() -> clienteService.buscarPorCriterio("CURP-X", "RFC-Y", null, null))
+                .isInstanceOf(CriterioBusquedaInvalidoException.class);
+
+        verify(clienteRepository, never()).findByCurp(any());
+        verify(clienteRepository, never()).findByRfc(any());
     }
 }

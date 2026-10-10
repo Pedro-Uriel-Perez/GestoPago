@@ -3,6 +3,8 @@ package com.proyecto.servicios.exception;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.proyecto.servicios.model.GenericResponse;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +13,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -52,6 +55,28 @@ public class GlobalExceptionHandler {
                 .orElse("El cuerpo de la peticion tiene un formato invalido");
         log.warn("JSON invalido en el request: {}", ex.getMessage());
         return construirRespuesta(HttpStatus.BAD_REQUEST, mensaje);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<GenericResponse> handleConstraintViolation(ConstraintViolationException ex) {
+        String mensaje = ex.getConstraintViolations().stream()
+                .map(ConstraintViolation::getMessage)
+                .collect(Collectors.joining(", "));
+        log.warn("Parametro invalido en el request: {}", mensaje);
+        return construirRespuesta(HttpStatus.BAD_REQUEST, mensaje);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<GenericResponse> handleTipoDeParametroInvalido(MethodArgumentTypeMismatchException ex) {
+        String mensaje = "El parametro '" + ex.getName() + "' tiene un valor invalido: '" + ex.getValue() + "'";
+        log.warn("Tipo de parametro invalido en el request: {}", mensaje);
+        return construirRespuesta(HttpStatus.BAD_REQUEST, mensaje);
+    }
+
+    @ExceptionHandler(CriterioBusquedaInvalidoException.class)
+    public ResponseEntity<GenericResponse> handleCriterioBusquedaInvalido(CriterioBusquedaInvalidoException ex) {
+        log.warn("Criterio de busqueda invalido: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
     @ExceptionHandler(ClienteYaRegistradoException.class)

@@ -6,6 +6,7 @@ import com.proyecto.servicios.entity.clientes.Domicilio;
 import com.proyecto.servicios.entity.clientes.Saldo;
 import com.proyecto.servicios.exception.ClienteNoEncontradoException;
 import com.proyecto.servicios.exception.ClienteYaRegistradoException;
+import com.proyecto.servicios.exception.CriterioBusquedaInvalidoException;
 import com.proyecto.servicios.exception.CuentaNoEncontradaException;
 import com.proyecto.servicios.exception.CurpDuplicadaException;
 import com.proyecto.servicios.exception.RfcDuplicadoException;
@@ -29,7 +30,10 @@ import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @Slf4j
@@ -99,6 +103,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ClienteResponse> obtenerTodos() {
         return clienteRepository.findAll().stream()
                 .map(this::ensamblarRespuestaCompleta)
@@ -106,11 +111,13 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ClienteResponse obtenerPorId(Integer id) {
         return ensamblarRespuestaCompleta(buscarPorId(id));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ClienteResponse obtenerPorCurp(String curp) {
         Cliente cliente = clienteRepository.findByCurp(curp)
                 .orElseThrow(() -> new ClienteNoEncontradoException("No existe un cliente con la CURP " + curp));
@@ -118,6 +125,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ClienteResponse obtenerPorRfc(String rfc) {
         Cliente cliente = clienteRepository.findByRfc(rfc)
                 .orElseThrow(() -> new ClienteNoEncontradoException("No existe un cliente con el RFC " + rfc));
@@ -125,6 +133,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ClienteResponse obtenerPorCorreo(String correo) {
         Cliente cliente = clienteRepository.findByCorreoElectronico(correo)
                 .orElseThrow(() -> new ClienteNoEncontradoException("No existe un cliente con el correo " + correo));
@@ -132,6 +141,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ClienteResponse obtenerPorNumeroCuenta(String numeroCuenta) {
         Cuenta cuenta = cuentaRepository.findByNumeroCuenta(numeroCuenta)
                 .orElseThrow(() -> new CuentaNoEncontradaException(
@@ -176,6 +186,29 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public ClienteResponse buscarPorCriterio(String curp, String rfc, String correo, String numeroCuenta) {
+        List<String> provistos = Stream.of(curp, rfc, correo, numeroCuenta)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        return Optional.of(provistos)
+                .filter(lista -> lista.size() == 1)
+                .map(lista -> resolverBusquedaPorCriterio(curp, rfc, correo, numeroCuenta))
+                .orElseThrow(() -> new CriterioBusquedaInvalidoException(
+                        "Debes proporcionar exactamente un criterio de busqueda: curp, rfc, correo o numeroCuenta"));
+    }
+
+    private ClienteResponse resolverBusquedaPorCriterio(String curp, String rfc, String correo, String numeroCuenta) {
+        return Optional.ofNullable(curp).map(this::obtenerPorCurp)
+                .or(() -> Optional.ofNullable(rfc).map(this::obtenerPorRfc))
+                .or(() -> Optional.ofNullable(correo).map(this::obtenerPorCorreo))
+                .or(() -> Optional.ofNullable(numeroCuenta).map(this::obtenerPorNumeroCuenta))
+                .orElseThrow(() -> new IllegalStateException("buscarPorCriterio ya garantizo un criterio valido"));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<ClienteResponse> obtenerActivos() {
         return clienteRepository.findByActivoTrue().stream()
                 .map(this::ensamblarRespuestaCompleta)
@@ -183,6 +216,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ClienteResponse> obtenerPorRangoFechas(LocalDateTime desde, LocalDateTime hasta) {
         return clienteRepository.findByFechaRegistroBetween(desde, hasta).stream()
                 .map(this::ensamblarRespuestaCompleta)

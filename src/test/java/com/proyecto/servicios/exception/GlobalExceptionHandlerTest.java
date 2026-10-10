@@ -3,18 +3,24 @@ package com.proyecto.servicios.exception;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.proyecto.servicios.model.GenericResponse;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.LocalDate;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class GlobalExceptionHandlerTest {
 
@@ -106,6 +112,40 @@ class GlobalExceptionHandlerTest {
 
         assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(respuesta.getBody().getMensaje()).contains("999");
+    }
+
+    @Test
+    void handleConstraintViolation_parametroDeQueryInvalido_devuelve400ConLosMensajes() {
+        ConstraintViolation<?> violation = mock(ConstraintViolation.class);
+        when(violation.getMessage()).thenReturn("El correo electronico no tiene un formato valido");
+        ConstraintViolationException ex = new ConstraintViolationException(Set.of(violation));
+
+        ResponseEntity<GenericResponse> respuesta = handler.handleConstraintViolation(ex);
+
+        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(respuesta.getBody().getMensaje()).contains("correo electronico");
+    }
+
+    @Test
+    void handleTipoDeParametroInvalido_devuelve400ConElNombreYElValor() {
+        MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException(
+                "no-es-un-id", Integer.class, "id", mock(MethodParameter.class), null);
+
+        ResponseEntity<GenericResponse> respuesta = handler.handleTipoDeParametroInvalido(ex);
+
+        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(respuesta.getBody().getMensaje())
+                .contains("id")
+                .contains("no-es-un-id");
+    }
+
+    @Test
+    void handleCriterioBusquedaInvalido_devuelve400() {
+        ResponseEntity<GenericResponse> respuesta = handler.handleCriterioBusquedaInvalido(
+                new CriterioBusquedaInvalidoException("Debes proporcionar exactamente un criterio de busqueda"));
+
+        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(respuesta.getBody().getMensaje()).contains("exactamente un criterio");
     }
 
     @Test

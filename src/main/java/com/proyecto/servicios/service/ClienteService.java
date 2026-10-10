@@ -23,6 +23,15 @@ public interface ClienteService {
 
     ClienteResponse obtenerPorNumeroCuenta(String numeroCuenta);
 
+    /**
+     * Resuelve GET /clientes/buscar: exige que se haya mandado exactamente
+     * uno de los cuatro parametros (curp, rfc, correo, numeroCuenta) y
+     * delega en el metodo correspondiente. Lanza
+     * CriterioBusquedaInvalidoException (400) si se mandan cero o varios a
+     * la vez.
+     */
+    ClienteResponse buscarPorCriterio(String curp, String rfc, String correo, String numeroCuenta);
+
     ClienteResponse actualizarCliente(Integer id, ClienteActualizaRequest request);
 
     void eliminarCliente(Integer id);
