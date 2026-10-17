@@ -2,14 +2,13 @@ package com.proyecto.servicios.repositorys.clientes;
 
 import com.proyecto.servicios.entity.clientes.Cliente;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
+public interface ClienteRepository extends JpaRepository<Cliente, Integer>, JpaSpecificationExecutor<Cliente> {
 
     Optional<Cliente> findByCurp(String curp);
 
@@ -22,8 +21,4 @@ public interface ClienteRepository extends JpaRepository<Cliente, Integer> {
     boolean existsByRfc(String rfc);
 
     boolean existsByCorreoElectronico(String correoElectronico);
-
-    List<Cliente> findByActivoTrue();
-
-    List<Cliente> findByFechaRegistroBetween(LocalDateTime desde, LocalDateTime hasta);
 }

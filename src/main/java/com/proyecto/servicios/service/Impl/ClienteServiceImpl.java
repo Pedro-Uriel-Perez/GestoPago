@@ -6,12 +6,12 @@ import com.proyecto.servicios.entity.clientes.Domicilio;
 import com.proyecto.servicios.entity.clientes.Saldo;
 import com.proyecto.servicios.exception.ClienteNoEncontradoException;
 import com.proyecto.servicios.exception.ClienteYaRegistradoException;
-import com.proyecto.servicios.exception.CriterioBusquedaInvalidoException;
 import com.proyecto.servicios.exception.CuentaNoEncontradaException;
 import com.proyecto.servicios.exception.CurpDuplicadaException;
 import com.proyecto.servicios.exception.RfcDuplicadoException;
 import com.proyecto.servicios.mapper.ClienteMapper;
 import com.proyecto.servicios.model.clientes.ClienteActualizaRequest;
+import com.proyecto.servicios.model.clientes.ClienteBusquedaRequest;
 import com.proyecto.servicios.model.clientes.ClienteRequest;
 import com.proyecto.servicios.model.clientes.ClienteResponse;
 import com.proyecto.servicios.repositorys.clientes.ClienteRepository;
@@ -22,18 +22,17 @@ import com.proyecto.servicios.service.ClienteService;
 import com.proyecto.servicios.service.CuentaService;
 import com.proyecto.servicios.service.LoginService;
 import com.proyecto.servicios.service.NacionalidadService;
+import com.proyecto.servicios.specification.ClienteSpecifications;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
-import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 @Slf4j
@@ -187,38 +186,20 @@ public class ClienteServiceImpl implements ClienteService {
 
     @Override
     @Transactional(readOnly = true)
-    public ClienteResponse buscarPorCriterio(String curp, String rfc, String correo, String numeroCuenta) {
-        List<String> provistos = Stream.of(curp, rfc, correo, numeroCuenta)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+    public List<ClienteResponse> buscarClientes(ClienteBusquedaRequest filtro) {
+        if (filtro.getNumeroCuenta() != null) {
+            Optional<Integer> clienteId = cuentaRepository.findByNumeroCuenta(filtro.getNumeroCuenta())
+                    .map(cuenta -> cuenta.getCliente().getId());
+            if (clienteId.isEmpty()) {
+                return Collections.emptyList();
+            }
+            return clienteRepository.findAll(ClienteSpecifications.of(filtro)).stream()
+                    .filter(cliente -> cliente.getId().equals(clienteId.get()))
+                    .map(this::ensamblarRespuestaCompleta)
+                    .collect(Collectors.toList());
+        }
 
-        return Optional.of(provistos)
-                .filter(lista -> lista.size() == 1)
-                .map(lista -> resolverBusquedaPorCriterio(curp, rfc, correo, numeroCuenta))
-                .orElseThrow(() -> new CriterioBusquedaInvalidoException(
-                        "Debes proporcionar exactamente un criterio de busqueda: curp, rfc, correo o numeroCuenta"));
-    }
-
-    private ClienteResponse resolverBusquedaPorCriterio(String curp, String rfc, String correo, String numeroCuenta) {
-        return Optional.ofNullable(curp).map(this::obtenerPorCurp)
-                .or(() -> Optional.ofNullable(rfc).map(this::obtenerPorRfc))
-                .or(() -> Optional.ofNullable(correo).map(this::obtenerPorCorreo))
-                .or(() -> Optional.ofNullable(numeroCuenta).map(this::obtenerPorNumeroCuenta))
-                .orElseThrow(() -> new IllegalStateException("buscarPorCriterio ya garantizo un criterio valido"));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<ClienteResponse> obtenerActivos() {
-        return clienteRepository.findByActivoTrue().stream()
-                .map(this::ensamblarRespuestaCompleta)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<ClienteResponse> obtenerPorRangoFechas(LocalDateTime desde, LocalDateTime hasta) {
-        return clienteRepository.findByFechaRegistroBetween(desde, hasta).stream()
+        return clienteRepository.findAll(ClienteSpecifications.of(filtro)).stream()
                 .map(this::ensamblarRespuestaCompleta)
                 .collect(Collectors.toList());
     }

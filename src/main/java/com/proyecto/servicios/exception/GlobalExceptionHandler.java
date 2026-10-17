@@ -73,12 +73,6 @@ public class GlobalExceptionHandler {
         return construirRespuesta(HttpStatus.BAD_REQUEST, mensaje);
     }
 
-    @ExceptionHandler(CriterioBusquedaInvalidoException.class)
-    public ResponseEntity<GenericResponse> handleCriterioBusquedaInvalido(CriterioBusquedaInvalidoException ex) {
-        log.warn("Criterio de busqueda invalido: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.BAD_REQUEST, ex.getMessage());
-    }
-
     @ExceptionHandler(ClienteYaRegistradoException.class)
     public ResponseEntity<GenericResponse> handleClienteYaRegistrado(ClienteYaRegistradoException ex) {
         log.warn("Intento de registrar un cliente duplicado: {}", ex.getMessage());

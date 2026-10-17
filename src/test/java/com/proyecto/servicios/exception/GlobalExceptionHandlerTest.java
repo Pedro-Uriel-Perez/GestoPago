@@ -140,15 +140,6 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void handleCriterioBusquedaInvalido_devuelve400() {
-        ResponseEntity<GenericResponse> respuesta = handler.handleCriterioBusquedaInvalido(
-                new CriterioBusquedaInvalidoException("Debes proporcionar exactamente un criterio de busqueda"));
-
-        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(respuesta.getBody().getMensaje()).contains("exactamente un criterio");
-    }
-
-    @Test
     void handleCredencialesInvalidas_devuelve401() {
         ResponseEntity<GenericResponse> respuesta = handler.handleCredencialesInvalidas(
                 new CredencialesInvalidasException("Correo o contrasena incorrectos"));

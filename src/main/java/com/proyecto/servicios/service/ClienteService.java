@@ -1,10 +1,10 @@
 package com.proyecto.servicios.service;
 
 import com.proyecto.servicios.model.clientes.ClienteActualizaRequest;
+import com.proyecto.servicios.model.clientes.ClienteBusquedaRequest;
 import com.proyecto.servicios.model.clientes.ClienteRequest;
 import com.proyecto.servicios.model.clientes.ClienteResponse;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ClienteService {
@@ -24,19 +24,14 @@ public interface ClienteService {
     ClienteResponse obtenerPorNumeroCuenta(String numeroCuenta);
 
     /**
-     * Resuelve GET /clientes/buscar: exige que se haya mandado exactamente
-     * uno de los cuatro parametros (curp, rfc, correo, numeroCuenta) y
-     * delega en el metodo correspondiente. Lanza
-     * CriterioBusquedaInvalidoException (400) si se mandan cero o varios a
-     * la vez.
+     * Resuelve POST /clientes/buscar: combina con AND solo los criterios
+     * que vienen distintos de null en el filtro (curp, rfc, correo,
+     * numeroCuenta, activo, rango de fecha de registro). Si no coincide
+     * ningun cliente devuelve una lista vacia, no un 404.
      */
-    ClienteResponse buscarPorCriterio(String curp, String rfc, String correo, String numeroCuenta);
+    List<ClienteResponse> buscarClientes(ClienteBusquedaRequest filtro);
 
     ClienteResponse actualizarCliente(Integer id, ClienteActualizaRequest request);
 
     void eliminarCliente(Integer id);
-
-    List<ClienteResponse> obtenerActivos();
-
-    List<ClienteResponse> obtenerPorRangoFechas(LocalDateTime desde, LocalDateTime hasta);
 }

@@ -6,10 +6,10 @@ import com.proyecto.servicios.entity.clientes.Domicilio;
 import com.proyecto.servicios.entity.clientes.Nacionalidad;
 import com.proyecto.servicios.exception.ClienteNoEncontradoException;
 import com.proyecto.servicios.exception.ClienteYaRegistradoException;
-import com.proyecto.servicios.exception.CriterioBusquedaInvalidoException;
 import com.proyecto.servicios.exception.CurpDuplicadaException;
 import com.proyecto.servicios.exception.RfcDuplicadoException;
 import com.proyecto.servicios.mapper.ClienteMapper;
+import com.proyecto.servicios.model.clientes.ClienteBusquedaRequest;
 import com.proyecto.servicios.model.clientes.ClienteRequest;
 import com.proyecto.servicios.model.clientes.ClienteResponse;
 import com.proyecto.servicios.model.clientes.DomicilioRequest;
@@ -26,8 +26,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -176,7 +178,7 @@ class ClienteServiceImplTest {
 
         assertThat(cliente.getActivo()).isFalse();
         verify(clienteRepository).save(cliente);
-        verify(clienteRepository, never()).delete(any());
+        verify(clienteRepository, never()).delete(any(Cliente.class));
         verify(clienteRepository, never()).deleteById(any());
         verify(loginService).cerrarSesion(5);
     }
@@ -190,36 +192,68 @@ class ClienteServiceImplTest {
     }
 
     @Test
-    void buscarPorCriterio_soloConCurp_delegaEnObtenerPorCurp() {
+    void buscarClientes_conFiltroPorCurp_devuelveLosClientesQueCoinciden() {
         Cliente cliente = new Cliente();
         cliente.setId(7);
-        when(clienteRepository.findByCurp("CURP-X")).thenReturn(Optional.of(cliente));
+        when(clienteRepository.findAll(any(Specification.class))).thenReturn(List.of(cliente));
         when(clienteMapper.toResponse(cliente)).thenReturn(new ClienteResponse());
         when(domicilioRepository.findByClienteId(7)).thenReturn(Optional.empty());
         when(cuentaRepository.findByClienteId(7)).thenReturn(Optional.empty());
 
-        ClienteResponse resultado = clienteService.buscarPorCriterio("CURP-X", null, null, null);
+        ClienteBusquedaRequest filtro = new ClienteBusquedaRequest();
+        filtro.setCurp("CURP-X");
 
-        assertThat(resultado).isNotNull();
-        verify(clienteRepository).findByCurp("CURP-X");
-        verify(clienteRepository, never()).findByRfc(any());
-        verify(clienteRepository, never()).findByCorreoElectronico(any());
+        List<ClienteResponse> resultado = clienteService.buscarClientes(filtro);
+
+        assertThat(resultado).hasSize(1);
+        verify(clienteRepository).findAll(any(Specification.class));
+        verify(cuentaRepository, never()).findByNumeroCuenta(any());
     }
 
     @Test
-    void buscarPorCriterio_sinNingunCriterio_lanzaCriterioBusquedaInvalidoException() {
-        assertThatThrownBy(() -> clienteService.buscarPorCriterio(null, null, null, null))
-                .isInstanceOf(CriterioBusquedaInvalidoException.class);
+    void buscarClientes_sinCoincidencias_devuelveListaVaciaSinLanzarExcepcion() {
+        when(clienteRepository.findAll(any(Specification.class))).thenReturn(List.of());
 
-        verify(clienteRepository, never()).findByCurp(any());
+        List<ClienteResponse> resultado = clienteService.buscarClientes(new ClienteBusquedaRequest());
+
+        assertThat(resultado).isEmpty();
     }
 
     @Test
-    void buscarPorCriterio_conDosCriteriosALaVez_lanzaCriterioBusquedaInvalidoException() {
-        assertThatThrownBy(() -> clienteService.buscarPorCriterio("CURP-X", "RFC-Y", null, null))
-                .isInstanceOf(CriterioBusquedaInvalidoException.class);
+    void buscarClientes_conNumeroCuentaInexistente_devuelveListaVaciaSinConsultarClientes() {
+        when(cuentaRepository.findByNumeroCuenta("1234567890")).thenReturn(Optional.empty());
 
-        verify(clienteRepository, never()).findByCurp(any());
-        verify(clienteRepository, never()).findByRfc(any());
+        ClienteBusquedaRequest filtro = new ClienteBusquedaRequest();
+        filtro.setNumeroCuenta("1234567890");
+
+        List<ClienteResponse> resultado = clienteService.buscarClientes(filtro);
+
+        assertThat(resultado).isEmpty();
+        verify(clienteRepository, never()).findAll(any(Specification.class));
+    }
+
+    @Test
+    void buscarClientes_conNumeroCuentaExistente_filtraPorElClienteDeEsaCuenta() {
+        Cliente clienteDeLaCuenta = new Cliente();
+        clienteDeLaCuenta.setId(3);
+        Cliente otroCliente = new Cliente();
+        otroCliente.setId(9);
+
+        Cuenta cuenta = new Cuenta();
+        cuenta.setCliente(clienteDeLaCuenta);
+        when(cuentaRepository.findByNumeroCuenta("1234567890")).thenReturn(Optional.of(cuenta));
+        when(clienteRepository.findAll(any(Specification.class)))
+                .thenReturn(List.of(clienteDeLaCuenta, otroCliente));
+        when(clienteMapper.toResponse(clienteDeLaCuenta)).thenReturn(new ClienteResponse());
+        when(domicilioRepository.findByClienteId(3)).thenReturn(Optional.empty());
+        when(cuentaRepository.findByClienteId(3)).thenReturn(Optional.empty());
+
+        ClienteBusquedaRequest filtro = new ClienteBusquedaRequest();
+        filtro.setNumeroCuenta("1234567890");
+
+        List<ClienteResponse> resultado = clienteService.buscarClientes(filtro);
+
+        assertThat(resultado).hasSize(1);
+        verify(clienteMapper, never()).toResponse(otroCliente);
     }
 }
