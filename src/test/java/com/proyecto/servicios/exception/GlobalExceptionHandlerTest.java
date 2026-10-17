@@ -37,6 +37,7 @@ class GlobalExceptionHandlerTest {
         ResponseEntity<GenericResponse> respuesta = handler.handleValidationErrors(ex);
 
         assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(respuesta.getBody().getCodigo()).isEqualTo(1);
         assertThat(respuesta.getBody().getMensaje())
                 .contains("El nombre es obligatorio")
                 .contains("El correo no es valido");

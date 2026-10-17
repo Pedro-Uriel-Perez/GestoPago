@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -39,11 +41,16 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<GenericResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
-        String mensaje = ex.getBindingResult().getFieldErrors().stream()
-                .map(FieldError::getDefaultMessage)
-                .collect(Collectors.joining(", "));
-        log.warn("Error de validacion en el request: {}", mensaje);
-        return construirRespuesta(HttpStatus.BAD_REQUEST, mensaje);
+        Map<String, String> errores = new HashMap<>();
+        for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
+            errores.put(fieldError.getField(), fieldError.getDefaultMessage());
+        }
+        log.warn("Error de validacion en el request: {}", errores);
+
+        GenericResponse respuesta = new GenericResponse();
+        respuesta.setCodigo(1);
+        respuesta.setMensaje("Datos no validos" + errores);
+        return new ResponseEntity<>(respuesta, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
