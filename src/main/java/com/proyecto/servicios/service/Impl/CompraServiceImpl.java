@@ -140,13 +140,14 @@ public class CompraServiceImpl implements CompraService {
 
         GestoPagoSenTxResponse respuesta = ejecutarSendTx(pendiente);
 
+        String codigo = respuesta.getMensaje() != null ? respuesta.getMensaje().getCodigo() : null;
         log.info("sendTx GestoPago. operacionId={}, codigo={}, idTx={}",
-                request.getOperacionId(), respuesta.getCodigo(), respuesta.getIdTx());
+                request.getOperacionId(), codigo, respuesta.getIdTx());
 
         if (!respuesta.esExitoso()) {
-            String mensaje = respuesta.getTexto() != null
-                    ? respuesta.getTexto()
-                    : "GestoPago rechazo la transaccion (codigo " + respuesta.getCodigo() + ")";
+            String mensaje = respuesta.getMensaje() != null && respuesta.getMensaje().getTexto() != null
+                    ? respuesta.getMensaje().getTexto()
+                    : "GestoPago rechazo la transaccion (codigo " + codigo + ")";
             throw new GestoPagoSenTxRechazadoException(mensaje);
         }
 

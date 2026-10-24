@@ -18,6 +18,7 @@ import com.proyecto.servicios.model.compras.CompraPendiente;
 import com.proyecto.servicios.model.compras.CompraRequest;
 import com.proyecto.servicios.model.compras.CompraResultadoResponse;
 import com.proyecto.servicios.model.gestopago.GestoPagoSenTxResponse;
+import com.proyecto.servicios.model.productlist.MensajeExternoDTO;
 import com.proyecto.servicios.repositorys.clientes.CuentaRepository;
 import com.proyecto.servicios.repositorys.clientes.SaldoRepository;
 import com.proyecto.servicios.repositorys.gestopago.GestoPagoProductoRepository;
@@ -254,9 +255,11 @@ class CompraServiceImplTest {
         when(valueOperations.get("compra:pendiente:abc")).thenReturn(objectMapper.writeValueAsString(pendiente));
         when(cipher.encriptar(anyString())).thenReturn("cifrado");
 
+        MensajeExternoDTO mensaje = new MensajeExternoDTO();
+        mensaje.setCodigo("02");
+        mensaje.setTexto("Saldo Insuficiente.");
         GestoPagoSenTxResponse respuesta = new GestoPagoSenTxResponse();
-        respuesta.setCodigo("02");
-        respuesta.setTexto("Saldo Insuficiente.");
+        respuesta.setMensaje(mensaje);
         when(senTxClient.sendTx(any())).thenReturn(respuesta);
 
         CompraConfirmarRequest request = new CompraConfirmarRequest();
@@ -278,8 +281,11 @@ class CompraServiceImplTest {
         when(valueOperations.get("compra:pendiente:abc")).thenReturn(objectMapper.writeValueAsString(pendiente));
         when(cipher.encriptar(anyString())).thenReturn("cifrado");
 
+        MensajeExternoDTO mensaje = new MensajeExternoDTO();
+        mensaje.setCodigo("01");
+        mensaje.setTexto("Operacion realizada con exito");
         GestoPagoSenTxResponse respuesta = new GestoPagoSenTxResponse();
-        respuesta.setCodigo("01");
+        respuesta.setMensaje(mensaje);
         respuesta.setNumAutorizacion("AUTH123");
         respuesta.setIdTx("999");
         when(senTxClient.sendTx(any())).thenReturn(respuesta);

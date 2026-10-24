@@ -4,24 +4,33 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import jakarta.xml.bind.annotation.XmlElement;
 import jakarta.xml.bind.annotation.XmlRootElement;
+import com.proyecto.servicios.model.productlist.MensajeExternoDTO;
 import lombok.Data;
 
 /**
- * Respuesta XML de sendTx.do/confirmTx.do segun la tabla "The XML Response"
- * de la especificacion PuntoRed. CODIGO distinto de "01" es error (ver
- * esExitoso()). NO VERIFICADO aun contra una llamada real: la especificacion
- * solo muestra esta forma plana en la tabla de campos; un ejemplo aislado de
- * timeout mostraba CODIGO anidado dentro de un nodo MENSAJE en su lugar. Hay
- * que confirmar la forma real con la primera llamada de prueba contra el
- * sandbox y ajustar si hace falta.
+ * Respuesta XML real de sendTx.do/confirmTx.do, confirmada con una llamada
+ * de prueba directa contra el sandbox (2026-10-24):
+ * <pre>
+ * &lt;RESPONSE&gt;
+ *   &lt;ID_TX&gt;...&lt;/ID_TX&gt;&lt;NUM_AUTORIZACION&gt;...&lt;/NUM_AUTORIZACION&gt;
+ *   &lt;SALDO&gt;...&lt;/SALDO&gt;&lt;COMISION&gt;...&lt;/COMISION&gt;
+ *   &lt;SALDO_F&gt;...&lt;/SALDO_F&gt;&lt;COMISION_F&gt;...&lt;/COMISION_F&gt;
+ *   &lt;FECHA&gt;...&lt;/FECHA&gt;&lt;MONTO&gt;...&lt;/MONTO&gt;
+ *   &lt;MENSAJE&gt;&lt;CODIGO&gt;01&lt;/CODIGO&gt;&lt;TEXTO&gt;...&lt;/TEXTO&gt;&lt;REFERENCIA/&gt;&lt;/MENSAJE&gt;
+ * &lt;/RESPONSE&gt;
+ * </pre>
+ * CODIGO/TEXTO/REFERENCIA van anidados dentro de MENSAJE, igual que en
+ * getProductList.do (se reusa MensajeExternoDTO). La especificacion los
+ * listaba como campos sueltos en su tabla de campos, pero la llamada real
+ * demostro que van anidados.
  */
 @Data
 @XmlRootElement(name = "RESPONSE")
 @XmlAccessorType(XmlAccessType.FIELD)
 public class GestoPagoSenTxResponse {
 
-    @XmlElement(name = "CODIGO")
-    private String codigo;
+    @XmlElement(name = "MENSAJE")
+    private MensajeExternoDTO mensaje;
 
     @XmlElement(name = "ID_TX")
     private String idTx;
@@ -47,19 +56,13 @@ public class GestoPagoSenTxResponse {
     @XmlElement(name = "MONTO")
     private String monto;
 
-    @XmlElement(name = "REFERENCIA")
-    private String referencia;
-
     @XmlElement(name = "PIN")
     private String pin;
 
     @XmlElement(name = "legend")
     private String legend;
 
-    @XmlElement(name = "TEXTO")
-    private String texto;
-
     public boolean esExitoso() {
-        return "01".equals(codigo);
+        return mensaje != null && mensaje.esExitoso();
     }
 }
