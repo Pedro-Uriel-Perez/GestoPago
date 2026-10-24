@@ -16,7 +16,14 @@ public class Cuenta {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    /**
+     * EAGER a proposito: los metodos de lectura que resuelven cliente a
+     * partir de una cuenta (ej. ClienteServiceImpl.buscarClientes con filtro
+     * numeroCuenta, CompraServiceImpl.iniciarCompra) ya no usan
+     * @Transactional, asi que no hay sesion de Hibernate abierta para
+     * resolver un proxy LAZY cuando se llama cuenta.getCliente().
+     */
+    @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "cliente_id", nullable = false, unique = true)
     private Cliente cliente;
 

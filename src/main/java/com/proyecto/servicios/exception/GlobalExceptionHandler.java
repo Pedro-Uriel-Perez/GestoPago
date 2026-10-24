@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mail.MailException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -108,6 +109,55 @@ public class GlobalExceptionHandler {
     public ResponseEntity<GenericResponse> handleCredencialesInvalidas(CredencialesInvalidasException ex) {
         log.warn("Intento de login con credenciales invalidas");
         return construirRespuesta(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    @ExceptionHandler(ClienteInactivoException.class)
+    public ResponseEntity<GenericResponse> handleClienteInactivo(ClienteInactivoException ex) {
+        log.warn("Operacion rechazada, cliente inactivo: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(SaldoInsuficienteException.class)
+    public ResponseEntity<GenericResponse> handleSaldoInsuficiente(SaldoInsuficienteException ex) {
+        log.warn("Saldo insuficiente: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(ProductoGestoPagoNoEncontradoException.class)
+    public ResponseEntity<GenericResponse> handleProductoGestoPagoNoEncontrado(ProductoGestoPagoNoEncontradoException ex) {
+        log.warn("Producto GestoPago no encontrado: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(OperacionCompraNoEncontradaException.class)
+    public ResponseEntity<GenericResponse> handleOperacionCompraNoEncontrada(OperacionCompraNoEncontradaException ex) {
+        log.warn("Operacion de compra no encontrada o expirada: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(CodigoVerificacionInvalidoException.class)
+    public ResponseEntity<GenericResponse> handleCodigoVerificacionInvalido(CodigoVerificacionInvalidoException ex) {
+        log.warn("Codigo de verificacion (2FA) invalido: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    @ExceptionHandler(GestoPagoSenTxRechazadoException.class)
+    public ResponseEntity<GenericResponse> handleGestoPagoSenTxRechazado(GestoPagoSenTxRechazadoException ex) {
+        log.warn("GestoPago rechazo la transaccion: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(DatosCompraInvalidosException.class)
+    public ResponseEntity<GenericResponse> handleDatosCompraInvalidos(DatosCompraInvalidosException ex) {
+        log.warn("Datos de compra invalidos: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(MailException.class)
+    public ResponseEntity<GenericResponse> handleMailException(MailException ex) {
+        log.error("No fue posible enviar el correo de verificacion: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.SERVICE_UNAVAILABLE,
+                "No fue posible enviar el codigo de verificacion por correo, intenta de nuevo mas tarde");
     }
 
     private String mensajeDeCampoInvalido(JsonMappingException ex) {
