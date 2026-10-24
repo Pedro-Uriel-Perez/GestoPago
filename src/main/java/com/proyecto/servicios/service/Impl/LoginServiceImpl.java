@@ -13,7 +13,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -40,7 +39,6 @@ public class LoginServiceImpl implements LoginService {
     }
 
     @Override
-    @Transactional
     public void registrarCredenciales(Cliente cliente, String passwordPlano) {
         Login login = new Login();
         login.setCliente(cliente);
@@ -52,7 +50,6 @@ public class LoginServiceImpl implements LoginService {
     }
 
     @Override
-    @Transactional
     public String iniciarSesion(String correoElectronico, String passwordPlano) {
         Cliente cliente = clienteRepository.findByCorreoElectronico(correoElectronico)
                 .filter(Cliente::getActivo)
@@ -77,7 +74,6 @@ public class LoginServiceImpl implements LoginService {
     }
 
     @Override
-    @Transactional
     public void cerrarSesion(Integer clienteId) {
         loginRepository.findByClienteId(clienteId).ifPresent(login -> {
             login.setSesionActiva(false);
@@ -89,7 +85,6 @@ public class LoginServiceImpl implements LoginService {
 
     @Override
     @Scheduled(cron = "${security.session.check-cron:0 * * * * *}")
-    @Transactional
     public void cerrarSesionesInactivas() {
         LocalDateTime limite = LocalDateTime.now().minusMinutes(inactividadMinutos);
         List<Login> sesionesInactivas = loginRepository.findBySesionActivaTrueAndFechaUltimoAccesoBefore(limite);

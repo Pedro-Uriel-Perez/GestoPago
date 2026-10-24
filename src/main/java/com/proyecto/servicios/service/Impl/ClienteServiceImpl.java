@@ -102,7 +102,6 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<ClienteResponse> obtenerTodos() {
         return clienteRepository.findAll().stream()
                 .map(this::ensamblarRespuestaCompleta)
@@ -110,13 +109,11 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public ClienteResponse obtenerPorId(Integer id) {
         return ensamblarRespuestaCompleta(buscarPorId(id));
     }
 
     @Override
-    @Transactional(readOnly = true)
     public ClienteResponse obtenerPorCurp(String curp) {
         Cliente cliente = clienteRepository.findByCurp(curp)
                 .orElseThrow(() -> new ClienteNoEncontradoException("No existe un cliente con la CURP " + curp));
@@ -124,7 +121,6 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public ClienteResponse obtenerPorRfc(String rfc) {
         Cliente cliente = clienteRepository.findByRfc(rfc)
                 .orElseThrow(() -> new ClienteNoEncontradoException("No existe un cliente con el RFC " + rfc));
@@ -132,7 +128,6 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public ClienteResponse obtenerPorCorreo(String correo) {
         Cliente cliente = clienteRepository.findByCorreoElectronico(correo)
                 .orElseThrow(() -> new ClienteNoEncontradoException("No existe un cliente con el correo " + correo));
@@ -140,7 +135,6 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public ClienteResponse obtenerPorNumeroCuenta(String numeroCuenta) {
         Cuenta cuenta = cuentaRepository.findByNumeroCuenta(numeroCuenta)
                 .orElseThrow(() -> new CuentaNoEncontradaException(
@@ -185,7 +179,6 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<ClienteResponse> buscarClientes(ClienteBusquedaRequest filtro) {
         if (filtro.getNumeroCuenta() != null) {
             Optional<Integer> clienteId = cuentaRepository.findByNumeroCuenta(filtro.getNumeroCuenta())

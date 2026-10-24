@@ -42,7 +42,13 @@ public class Cliente {
     @Column(name = "sexo", nullable = false, columnDefinition = "TEXT")
     private String sexo;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    /**
+     * EAGER a proposito: Nacionalidad es un catalogo chico (14 filas) y los
+     * metodos de lectura de ClienteServiceImpl ya no usan @Transactional,
+     * asi que no hay sesion de Hibernate abierta para resolver un proxy
+     * LAZY cuando el mapper accede a nacionalidad.getNombre()/getId().
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "nacionalidad_id", nullable = false)
     private Nacionalidad nacionalidad;
 
