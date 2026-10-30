@@ -8,15 +8,19 @@ import com.proyecto.servicios.model.compras.CompraResultadoResponse;
 public interface CompraService {
 
     /**
-     * Valida cliente activo y saldo suficiente, arma el payload para
-     * GestoPago, lo congela junto con un PIN de 6 digitos en Redis (TTL
-     * corto) y manda el PIN por correo. No llama a GestoPago todavia.
+     * Valida que la cuenta sea del cliente autenticado, que este activo, que
+     * no tenga otra compra pendiente, que el producto exista y el monto
+     * corresponda al catalogo, y que el saldo alcance. Congela el payload
+     * junto con un PIN de 6 digitos en Redis (TTL corto) y manda el PIN por
+     * correo. No llama a GestoPago todavia.
      */
-    CompraIniciadaResponse iniciarCompra(CompraRequest request);
+    CompraIniciadaResponse iniciarCompra(CompraRequest request, Integer clienteIdAutenticado);
 
     /**
-     * Valida el PIN contra lo guardado en Redis y, si coincide, cifra el
-     * payload congelado y ejecuta la compra real contra GestoPago (sendTx).
+     * Valida que la operacion sea del cliente autenticado y el PIN, bloquea
+     * la cuenta, vuelve a verificar saldo, ejecuta sendTx (con conciliacion
+     * via confirmTx si hay timeout) y descuenta el saldo solo si GestoPago
+     * confirma exito.
      */
-    CompraResultadoResponse confirmarCompra(CompraConfirmarRequest request);
+    CompraResultadoResponse confirmarCompra(CompraConfirmarRequest request, Integer clienteIdAutenticado);
 }

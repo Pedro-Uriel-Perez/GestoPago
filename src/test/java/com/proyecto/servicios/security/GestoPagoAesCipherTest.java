@@ -6,8 +6,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class GestoPagoAesCipherTest {
 
-    private static final String SECRET_KEY = "HPo7OLqB4Fkk4E2yGOtwqw8H5fHR9kNx67OR4g4UdlA=";
-    private static final String IV = "p5ldmBPdd/9pjC0bDC/nSg==";
+    // Llave/IV aleatorias de prueba, no las de GestoPago.
+    private static final String SECRET_KEY = "533JchFhKkgsa1l4t4tOc+PrZm/d6wf/SDueBGZhCOA=";
+    private static final String IV = "Lt552TSKgLBaBGUX6M7T3w==";
 
     private final GestoPagoAesCipher cipher = new GestoPagoAesCipher(SECRET_KEY, IV);
 

@@ -29,7 +29,8 @@ import java.util.Map;
         basePackages = {
                 "com.proyecto.servicios.repositorys.sf",
                 "com.proyecto.servicios.repositorys.gestopago",
-                "com.proyecto.servicios.repositorys.clientes"
+                "com.proyecto.servicios.repositorys.clientes",
+                "com.proyecto.servicios.repositorys.compras"
         },
         transactionManagerRef = "sfTransactionManager",
         entityManagerFactoryRef = "sfEntityManagerFactory"
@@ -69,7 +70,8 @@ public class ConfigDB {
           em.setPackagesToScan(
                   "com.proyecto.servicios.entity.sf",
                   "com.proyecto.servicios.entity.gestopago",
-                  "com.proyecto.servicios.entity.clientes"
+                  "com.proyecto.servicios.entity.clientes",
+                  "com.proyecto.servicios.entity.compras"
           );
           em.setPersistenceUnitName("sfDatasource");
             HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
@@ -77,7 +79,8 @@ public class ConfigDB {
           Map<String, Object> properties=new HashMap<>();
           properties.put("hibernate.hbm2ddl.auto", "none");
             properties.put("hibernate.show-sql", false);
-            properties.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
+            properties.put("hibernate.dialect",
+                    env.getProperty("spring.jpa.database-platform", "org.hibernate.dialect.PostgreSQLDialect"));
             properties.put("jakarta.persistence.query.timeout", 600000);
 
 
