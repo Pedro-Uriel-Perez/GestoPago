@@ -2,15 +2,21 @@ package com.proyecto.servicios.security;
 
 import org.junit.jupiter.api.Test;
 
+import java.security.SecureRandom;
+import java.util.Base64;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class GestoPagoAesCipherTest {
 
-    // Llave/IV aleatorias de prueba, no las de GestoPago.
-    private static final String SECRET_KEY = "533JchFhKkgsa1l4t4tOc+PrZm/d6wf/SDueBGZhCOA=";
-    private static final String IV = "Lt552TSKgLBaBGUX6M7T3w==";
+    private final GestoPagoAesCipher cipher = new GestoPagoAesCipher(aleatorioBase64(32), aleatorioBase64(16));
 
-    private final GestoPagoAesCipher cipher = new GestoPagoAesCipher(SECRET_KEY, IV);
+    /** Llave/IV generadas en cada corrida: ningun valor fijo queda en el repo. */
+    static String aleatorioBase64(int bytes) {
+        byte[] valor = new byte[bytes];
+        new SecureRandom().nextBytes(valor);
+        return Base64.getEncoder().encodeToString(valor);
+    }
 
     @Test
     void encriptarYDesencriptar_conElPayloadDeEjemploDeLaEspecificacion_regresaElMismoTexto() {

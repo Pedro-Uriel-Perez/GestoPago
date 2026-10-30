@@ -28,6 +28,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -101,6 +103,19 @@ class CompraIntegracionTest {
     private StringRedisTemplate redisTemplate;
 
     private final Map<String, String> redisEnMemoria = new ConcurrentHashMap<>();
+
+    /** Llave/IV AES aleatorias por corrida: GestoPago esta simulado y asi ningun valor fijo queda en el repo. */
+    @DynamicPropertySource
+    static void llaveAesDePrueba(DynamicPropertyRegistry registro) {
+        registro.add("gestopago.sendtx.secret-key", () -> aleatorioBase64(32));
+        registro.add("gestopago.sendtx.iv", () -> aleatorioBase64(16));
+    }
+
+    private static String aleatorioBase64(int bytes) {
+        byte[] valor = new byte[bytes];
+        new java.security.SecureRandom().nextBytes(valor);
+        return java.util.Base64.getEncoder().encodeToString(valor);
+    }
 
     @BeforeEach
     @SuppressWarnings("unchecked")
