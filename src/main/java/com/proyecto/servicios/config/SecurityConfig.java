@@ -47,7 +47,7 @@ public class SecurityConfig {
                         .requestMatchers(RUTAS_PUBLICAS).permitAll()
                         .requestMatchers(HttpMethod.POST, "/clientes").permitAll()
                         .requestMatchers(HttpMethod.POST, "/login").permitAll()
-                        .requestMatchers("/clientes/**", "/cuentas/**", "/login/**").authenticated()
+                        .requestMatchers("/clientes/**", "/cuentas/**", "/login/**", "/compras/**").authenticated()
                         .anyRequest().permitAll())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(this::responderNoAutenticado))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

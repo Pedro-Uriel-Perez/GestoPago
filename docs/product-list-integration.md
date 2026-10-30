@@ -84,10 +84,11 @@ registra automáticamente un conversor XML que Feign usa sin configuración
 adicional; el `@GetMapping` del cliente solo declara
 `produces = MediaType.APPLICATION_XML_VALUE` para pedir XML explícitamente.
 
-**Confirmado contra el servicio real**: con las credenciales de demo de la
-especificación (`idDistribuidor=83`, `codigoDispositivo=GPS83-TPV-17`,
-`password=12345678`), la app renovó el token real y `GET /productos` trajo
-el catálogo real de GestoPago (~900 productos) end-to-end.
+**Confirmado contra el servicio real**: con las credenciales de demo del
+distribuidor (la contraseña se configura con la variable de entorno
+`GESTOPAGO_AUTH_PASSWORD`, nunca en el repo), la app renovó el token real y
+`GET /productos` trajo el catálogo real de GestoPago (~900 productos)
+end-to-end.
 
 Hay una prueba dedicada (`ProductListApiResponseXmlTest`) que deserializa un
 XML con la forma exacta de la especificación, sin necesitar red ni mocks.

@@ -3,15 +3,18 @@ package com.proyecto.servicios.exception;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.proyecto.servicios.model.GenericResponse;
+import feign.FeignException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mail.MailException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
@@ -108,6 +111,116 @@ public class GlobalExceptionHandler {
     public ResponseEntity<GenericResponse> handleCredencialesInvalidas(CredencialesInvalidasException ex) {
         log.warn("Intento de login con credenciales invalidas");
         return construirRespuesta(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    @ExceptionHandler(ClienteInactivoException.class)
+    public ResponseEntity<GenericResponse> handleClienteInactivo(ClienteInactivoException ex) {
+        log.warn("Operacion rechazada, cliente inactivo: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(SaldoInsuficienteException.class)
+    public ResponseEntity<GenericResponse> handleSaldoInsuficiente(SaldoInsuficienteException ex) {
+        log.warn("Saldo insuficiente: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(ProductoGestoPagoNoEncontradoException.class)
+    public ResponseEntity<GenericResponse> handleProductoGestoPagoNoEncontrado(ProductoGestoPagoNoEncontradoException ex) {
+        log.warn("Producto GestoPago no encontrado: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(OperacionCompraNoEncontradaException.class)
+    public ResponseEntity<GenericResponse> handleOperacionCompraNoEncontrada(OperacionCompraNoEncontradaException ex) {
+        log.warn("Operacion de compra no encontrada o expirada: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(CodigoVerificacionInvalidoException.class)
+    public ResponseEntity<GenericResponse> handleCodigoVerificacionInvalido(CodigoVerificacionInvalidoException ex) {
+        log.warn("Codigo de verificacion (2FA) invalido: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    @ExceptionHandler(GestoPagoSenTxRechazadoException.class)
+    public ResponseEntity<GenericResponse> handleGestoPagoSenTxRechazado(GestoPagoSenTxRechazadoException ex) {
+        log.warn("GestoPago rechazo la transaccion: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(DatosCompraInvalidosException.class)
+    public ResponseEntity<GenericResponse> handleDatosCompraInvalidos(DatosCompraInvalidosException ex) {
+        log.warn("Datos de compra invalidos: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(MailException.class)
+    public ResponseEntity<GenericResponse> handleMailException(MailException ex) {
+        log.error("No fue posible enviar el correo de verificacion: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.SERVICE_UNAVAILABLE,
+                "No fue posible enviar el codigo de verificacion por correo, intenta de nuevo mas tarde");
+    }
+
+    @ExceptionHandler(OperacionNoAutorizadaException.class)
+    public ResponseEntity<GenericResponse> handleOperacionNoAutorizada(OperacionNoAutorizadaException ex) {
+        log.warn("Operacion no autorizada: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(CompraPendienteExistenteException.class)
+    public ResponseEntity<GenericResponse> handleCompraPendienteExistente(CompraPendienteExistenteException ex) {
+        log.warn("Compra rechazada por operacion pendiente previa: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    /**
+     * 202 Accepted y no un error: la solicitud llego a GestoPago pero no se
+     * pudo confirmar su resultado. No es correcto decirle al cliente que
+     * fallo (pudo haberse cobrado) ni que fue exitosa.
+     */
+    @ExceptionHandler(TransaccionGestoPagoIndeterminadaException.class)
+    public ResponseEntity<GenericResponse> handleTransaccionIndeterminada(TransaccionGestoPagoIndeterminadaException ex) {
+        log.error("Transaccion GestoPago con resultado indeterminado, pendiente de conciliacion");
+        return construirRespuesta(HttpStatus.ACCEPTED, ex.getMessage());
+    }
+
+    @ExceptionHandler(GestoPagoTokenNoDisponibleException.class)
+    public ResponseEntity<GenericResponse> handleTokenGestoPagoNoDisponible(GestoPagoTokenNoDisponibleException ex) {
+        log.error("No hay token GestoPago vigente para operar: {}", ex.getMessage());
+        return construirRespuesta(HttpStatus.SERVICE_UNAVAILABLE,
+                "El servicio de pagos no esta disponible en este momento, intenta de nuevo mas tarde");
+    }
+
+    /**
+     * Errores de comunicacion con GestoPago que no se pudieron conciliar en
+     * el service (ej. 401/403 por token rechazado). Se registra el detalle
+     * en el log, pero al cliente nunca se le devuelve el cuerpo/URL del
+     * proveedor.
+     */
+    @ExceptionHandler(FeignException.class)
+    public ResponseEntity<GenericResponse> handleErrorProveedorExterno(FeignException ex) {
+        log.error("Error de comunicacion con el proveedor externo: status={}", ex.status());
+        return construirRespuesta(HttpStatus.BAD_GATEWAY,
+                "El proveedor de pagos no respondio correctamente, intenta de nuevo mas tarde");
+    }
+
+    /**
+     * Red de seguridad: ninguna excepcion no prevista debe devolver el stack
+     * trace ni detalles internos. Las excepciones propias del framework
+     * (404 de ruta inexistente, 405, 415, etc.) conservan su status.
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<GenericResponse> handleErrorInesperado(Exception ex) {
+        if (ex instanceof ErrorResponse errorResponse) {
+            HttpStatus status = Optional.ofNullable(HttpStatus.resolve(errorResponse.getStatusCode().value()))
+                    .orElse(HttpStatus.INTERNAL_SERVER_ERROR);
+            log.warn("Peticion rechazada por el framework: {} {}", status.value(), ex.getMessage());
+            return construirRespuesta(status, status.getReasonPhrase());
+        }
+        log.error("Error inesperado procesando la peticion", ex);
+        return construirRespuesta(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Ocurrio un error inesperado, intenta de nuevo mas tarde");
     }
 
     private String mensajeDeCampoInvalido(JsonMappingException ex) {
