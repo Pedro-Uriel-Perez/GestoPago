@@ -45,7 +45,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -222,7 +224,7 @@ class CompraIntegracionTest {
 
     private String ultimoPinEnviado() {
         ArgumentCaptor<String> pin = ArgumentCaptor.forClass(String.class);
-        verify(mailService, org.mockito.Mockito.atLeastOnce()).enviarCodigoVerificacion(anyString(), pin.capture());
+        verify(mailService, atLeastOnce()).enviarCodigoVerificacion(anyString(), pin.capture());
         List<String> pines = pin.getAllValues();
         return pines.get(pines.size() - 1);
     }
@@ -247,7 +249,7 @@ class CompraIntegracionTest {
     }
 
     private BigDecimal saldoActual(Integer cuentaId) {
-        return saldoRepository.findFirstByCuentaIdOrderByFechaMovimientoDesc(cuentaId)
+        return saldoRepository.findFirstByCuentaIdOrderByIdDesc(cuentaId)
                 .map(Saldo::getMonto).orElse(BigDecimal.ZERO);
     }
 
@@ -405,7 +407,10 @@ class CompraIntegracionTest {
     void concurrencia_dobleConfirmacionSimultaneaDeLaMismaOperacion_cobraUnaSolaVez() throws Exception {
         ClienteDePrueba cliente = registrarClienteConSaldo("500.00");
         when(senTxClient.sendTx(any())).thenAnswer(inv -> {
-            Thread.sleep(300);
+            // Simula la latencia de GestoPago para que las dos confirmaciones
+            // se traslapen de verdad. Lo que se verifica (un solo cobro) no
+            // depende de cuanto dure la espera, solo hace la prueba mas exigente.
+            Thread.sleep(300); // NOSONAR java:S2925, latencia simulada del proveedor externo
             return respuestaGestoPago("01", "Operacion realizada con exito");
         });
         String operacionId = iniciarCompraYObtenerOperacion(cliente);
@@ -415,7 +420,7 @@ class CompraIntegracionTest {
                 () -> confirmar(cliente, operacionId, pin).getResponse().getStatus());
 
         assertThat(estados).containsExactlyInAnyOrder(200, 404);
-        verify(senTxClient, org.mockito.Mockito.times(1)).sendTx(any());
+        verify(senTxClient, times(1)).sendTx(any());
         assertThat(saldoActual(cliente.cuentaId())).isEqualByComparingTo("400.00");
     }
 

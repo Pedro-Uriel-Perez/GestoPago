@@ -25,7 +25,7 @@ class GestoPagoProductosArranqueTest {
     private GestoPagoProductosArranque arranque;
 
     @Test
-    void run_catalogoVacio_disparaUnaSincronizacion() throws Exception {
+    void run_catalogoVacio_disparaUnaSincronizacion() {
         when(productoRepository.count()).thenReturn(0L);
 
         arranque.run(null);
@@ -34,7 +34,7 @@ class GestoPagoProductosArranqueTest {
     }
 
     @Test
-    void run_catalogoConDatos_noDisparaSincronizacion() throws Exception {
+    void run_catalogoConDatos_noDisparaSincronizacion() {
         when(productoRepository.count()).thenReturn(900L);
 
         arranque.run(null);

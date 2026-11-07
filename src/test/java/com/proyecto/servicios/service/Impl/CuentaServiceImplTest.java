@@ -51,7 +51,7 @@ class CuentaServiceImplTest {
 
         when(cuentaRepository.findByNumeroCuenta("1234567890")).thenReturn(Optional.of(cuenta));
         when(clienteMapper.toResponse(cuenta)).thenReturn(respuestaBase);
-        when(saldoRepository.findFirstByCuentaIdOrderByFechaMovimientoDesc(10)).thenReturn(Optional.of(ultimoSaldo));
+        when(saldoRepository.findFirstByCuentaIdOrderByIdDesc(10)).thenReturn(Optional.of(ultimoSaldo));
 
         CuentaResponse resultado = cuentaService.obtenerPorNumeroCuenta("1234567890");
 
@@ -65,7 +65,7 @@ class CuentaServiceImplTest {
 
         when(cuentaRepository.findByNumeroCuenta("0000000001")).thenReturn(Optional.of(cuenta));
         when(clienteMapper.toResponse(cuenta)).thenReturn(new CuentaResponse());
-        when(saldoRepository.findFirstByCuentaIdOrderByFechaMovimientoDesc(11)).thenReturn(Optional.empty());
+        when(saldoRepository.findFirstByCuentaIdOrderByIdDesc(11)).thenReturn(Optional.empty());
 
         CuentaResponse resultado = cuentaService.obtenerPorNumeroCuenta("0000000001");
 
@@ -88,7 +88,7 @@ class CuentaServiceImplTest {
         List<Saldo> historial = List.of(new Saldo(), new Saldo());
 
         when(cuentaRepository.findByNumeroCuenta("5555555555")).thenReturn(Optional.of(cuenta));
-        when(saldoRepository.findByCuentaIdOrderByFechaMovimientoDesc(20)).thenReturn(historial);
+        when(saldoRepository.findByCuentaIdOrderByIdDesc(20)).thenReturn(historial);
         when(clienteMapper.toSaldoResponseList(historial)).thenReturn(List.of(
                 new com.proyecto.servicios.model.clientes.SaldoResponse(),
                 new com.proyecto.servicios.model.clientes.SaldoResponse()));
@@ -105,7 +105,7 @@ class CuentaServiceImplTest {
         cuenta.setId(30);
         when(cuentaRepository.findByEstatus("ACTIVA")).thenReturn(List.of(cuenta));
         when(clienteMapper.toResponse(any(Cuenta.class))).thenReturn(new CuentaResponse());
-        when(saldoRepository.findFirstByCuentaIdOrderByFechaMovimientoDesc(30)).thenReturn(Optional.empty());
+        when(saldoRepository.findFirstByCuentaIdOrderByIdDesc(30)).thenReturn(Optional.empty());
 
         assertThat(cuentaService.obtenerActivas()).hasSize(1);
     }

@@ -405,7 +405,8 @@ class ClienteServiceImplTest {
         when(clienteRepository.findById(8)).thenReturn(Optional.of(cliente));
         when(clienteRepository.findByCorreoElectronico("nuevo@correo.com")).thenReturn(Optional.of(clienteConId(99)));
 
-        assertThatThrownBy(() -> clienteService.actualizarCliente(8, actualizacion()))
+        var cambios = actualizacion();
+        assertThatThrownBy(() -> clienteService.actualizarCliente(8, cambios))
                 .isInstanceOf(NegocioException.class)
                 .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
 
@@ -433,7 +434,8 @@ class ClienteServiceImplTest {
         when(nacionalidadService.buscarPorId(1)).thenReturn(new Nacionalidad());
         when(domicilioRepository.findByClienteId(8)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> clienteService.actualizarCliente(8, actualizacion()))
+        var cambios = actualizacion();
+        assertThatThrownBy(() -> clienteService.actualizarCliente(8, cambios))
                 .isInstanceOf(NegocioException.class)
                 .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
     }
