@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -44,7 +43,7 @@ public class CuentaServiceImpl implements CuentaService {
     public List<CuentaResponse> obtenerActivas() {
         return cuentaRepository.findByEstatus("ACTIVA").stream()
                 .map(this::construirRespuesta)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override

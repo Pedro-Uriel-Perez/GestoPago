@@ -29,7 +29,6 @@ import java.security.SecureRandom;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -102,7 +101,7 @@ public class ClienteServiceImpl implements ClienteService {
     public List<ClienteResponse> obtenerTodos() {
         return clienteRepository.findAll().stream()
                 .map(this::ensamblarRespuestaCompleta)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -186,12 +185,12 @@ public class ClienteServiceImpl implements ClienteService {
             return clienteRepository.findAll(ClienteSpecifications.of(filtro)).stream()
                     .filter(cliente -> cliente.getId().equals(clienteId.get()))
                     .map(this::ensamblarRespuestaCompleta)
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         return clienteRepository.findAll(ClienteSpecifications.of(filtro)).stream()
                 .map(this::ensamblarRespuestaCompleta)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private void validarUnicidad(String curp, String rfc, String correo) {

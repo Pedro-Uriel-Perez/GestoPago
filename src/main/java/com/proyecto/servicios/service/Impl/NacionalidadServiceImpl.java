@@ -9,7 +9,6 @@ import com.proyecto.servicios.service.NacionalidadService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class NacionalidadServiceImpl implements NacionalidadService {
@@ -24,7 +23,7 @@ public class NacionalidadServiceImpl implements NacionalidadService {
     public List<NacionalidadResponse> obtenerTodas() {
         return nacionalidadRepository.findAll().stream()
                 .map(this::construirRespuesta)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override

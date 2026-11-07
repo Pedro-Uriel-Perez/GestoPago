@@ -1,5 +1,6 @@
 package com.proyecto.servicios.service.Impl;
 
+import com.proyecto.servicios.config.ZonaHoraria;
 import org.springframework.http.HttpStatus;
 import com.proyecto.servicios.exception.NegocioException;
 import com.proyecto.servicios.entity.clientes.Cliente;
@@ -22,6 +23,10 @@ import java.util.Optional;
 @Service
 @Slf4j
 public class LoginServiceImpl implements LoginService {
+
+    // Mismo mensaje para correo inexistente, contrasena incorrecta o cliente
+    // dado de baja, para no revelar cual de los tres fallo.
+    private static final String MENSAJE_CREDENCIALES_INVALIDAS = "Correo o contrasena incorrectos";
 
     private final ClienteRepository clienteRepository;
     private final LoginRepository loginRepository;
@@ -54,20 +59,20 @@ public class LoginServiceImpl implements LoginService {
     public String iniciarSesion(String correoElectronico, String passwordPlano) {
         Cliente cliente = clienteRepository.findByCorreoElectronico(correoElectronico)
                 .filter(Cliente::getActivo)
-                .orElseThrow(() -> new NegocioException(HttpStatus.UNAUTHORIZED, "Correo o contrasena incorrectos"));
+                .orElseThrow(() -> new NegocioException(HttpStatus.UNAUTHORIZED, MENSAJE_CREDENCIALES_INVALIDAS));
 
         Login login = loginRepository.findByClienteId(cliente.getId())
-                .orElseThrow(() -> new NegocioException(HttpStatus.UNAUTHORIZED, "Correo o contrasena incorrectos"));
+                .orElseThrow(() -> new NegocioException(HttpStatus.UNAUTHORIZED, MENSAJE_CREDENCIALES_INVALIDAS));
 
         Optional.of(login.getPasswordHash())
                 .filter(hash -> passwordEncoder.matches(passwordPlano, hash))
-                .orElseThrow(() -> new NegocioException(HttpStatus.UNAUTHORIZED, "Correo o contrasena incorrectos"));
+                .orElseThrow(() -> new NegocioException(HttpStatus.UNAUTHORIZED, MENSAJE_CREDENCIALES_INVALIDAS));
 
         String token = jwtService.generarToken(cliente.getId(), cliente.getCorreoElectronico());
 
         login.setJwtToken(token);
         login.setSesionActiva(true);
-        login.setFechaUltimoAcceso(LocalDateTime.now());
+        login.setFechaUltimoAcceso(LocalDateTime.now(ZonaHoraria.MEXICO));
         loginRepository.save(login);
 
         log.info("Sesion iniciada. clienteId={}", cliente.getId());
@@ -87,7 +92,7 @@ public class LoginServiceImpl implements LoginService {
     @Override
     @Scheduled(cron = "${security.session.check-cron:0 * * * * *}")
     public void cerrarSesionesInactivas() {
-        LocalDateTime limite = LocalDateTime.now().minusMinutes(inactividadMinutos);
+        LocalDateTime limite = LocalDateTime.now(ZonaHoraria.MEXICO).minusMinutes(inactividadMinutos);
         List<Login> sesionesInactivas = loginRepository.findBySesionActivaTrueAndFechaUltimoAccesoBefore(limite);
 
         sesionesInactivas.forEach(login -> {

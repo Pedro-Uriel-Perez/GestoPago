@@ -1,5 +1,6 @@
 package com.proyecto.servicios.service.Impl;
 
+import com.proyecto.servicios.config.ZonaHoraria;
 import org.springframework.http.HttpStatus;
 import com.proyecto.servicios.exception.NegocioException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -126,7 +127,7 @@ public class CompraServiceImpl implements CompraService {
                     referencia != null ? request.getMonto().doubleValue() : null,
                     generarUpc(),
                     unidad,
-                    LocalDateTime.now().format(FORMATO_HORA_LOCAL),
+                    LocalDateTime.now(ZonaHoraria.MEXICO).format(FORMATO_HORA_LOCAL),
                     request.getMonto(),
                     codigoVerificacion);
 
@@ -160,7 +161,7 @@ public class CompraServiceImpl implements CompraService {
      * evitarlo fuera de escrituras multi-tabla: aqui se necesita una
      * transaccion real para sostener el bloqueo pesimista de
      * findWithLockingById mientras se verifica el saldo, se llama a
-     * GestoPago y se registra el descuento, todo como una sola seccion
+     * GestoPago y se registra el descuento como una sola seccion
      * critica. Sin esto, dos confirmaciones simultaneas de la misma cuenta
      * podrian leer el mismo saldo "antes" y ambas restar sobre el mismo
      * valor (lost update).

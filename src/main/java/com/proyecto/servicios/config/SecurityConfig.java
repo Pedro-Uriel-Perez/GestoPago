@@ -41,7 +41,12 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
+                // Revisado (Sonar java:S4502): CSRF solo aplica cuando la
+                // sesion viaja en cookies que el navegador manda solo. Esta
+                // API es stateless y se autentica con el JWT en el header
+                // Authorization, que el navegador nunca adjunta por su cuenta,
+                // asi que no hay token que un sitio ajeno pueda reutilizar.
+                .csrf(csrf -> csrf.disable()) // NOSONAR
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(RUTAS_PUBLICAS).permitAll()
