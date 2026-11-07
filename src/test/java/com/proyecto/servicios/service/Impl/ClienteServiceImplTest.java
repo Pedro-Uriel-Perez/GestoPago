@@ -259,4 +259,205 @@ class ClienteServiceImplTest {
         assertThat(resultado).hasSize(1);
         verify(clienteMapper, never()).toResponse(otroCliente);
     }
+
+    // ---------- consultas ----------
+
+    private Cliente clienteConId(Integer id) {
+        Cliente cliente = new Cliente();
+        cliente.setId(id);
+        return cliente;
+    }
+
+    private void respuestaArmadaPara(Cliente cliente) {
+        when(clienteMapper.toResponse(cliente)).thenReturn(new ClienteResponse());
+        when(domicilioRepository.findByClienteId(cliente.getId())).thenReturn(Optional.empty());
+        when(cuentaRepository.findByClienteId(cliente.getId())).thenReturn(Optional.empty());
+    }
+
+    @Test
+    void obtenerTodos_regresaUnaRespuestaPorCadaCliente() {
+        Cliente uno = clienteConId(1);
+        Cliente dos = clienteConId(2);
+        when(clienteRepository.findAll()).thenReturn(List.of(uno, dos));
+        respuestaArmadaPara(uno);
+        respuestaArmadaPara(dos);
+
+        assertThat(clienteService.obtenerTodos()).hasSize(2);
+    }
+
+    @Test
+    void obtenerPorId_existente_armaLaRespuestaConDomicilioYCuenta() {
+        Cliente cliente = clienteConId(3);
+        when(clienteRepository.findById(3)).thenReturn(Optional.of(cliente));
+        when(clienteMapper.toResponse(cliente)).thenReturn(new ClienteResponse());
+        Domicilio domicilio = new Domicilio();
+        when(domicilioRepository.findByClienteId(3)).thenReturn(Optional.of(domicilio));
+        when(clienteMapper.toResponse(domicilio)).thenReturn(new com.proyecto.servicios.model.clientes.DomicilioResponse());
+        Cuenta cuenta = new Cuenta();
+        when(cuentaRepository.findByClienteId(3)).thenReturn(Optional.of(cuenta));
+        when(cuentaService.construirRespuesta(cuenta)).thenReturn(new com.proyecto.servicios.model.clientes.CuentaResponse());
+
+        ClienteResponse resultado = clienteService.obtenerPorId(3);
+
+        assertThat(resultado.getDomicilio()).isNotNull();
+        assertThat(resultado.getCuenta()).isNotNull();
+    }
+
+    @Test
+    void obtenerPorCurp_existente_regresaElCliente() {
+        Cliente cliente = clienteConId(4);
+        when(clienteRepository.findByCurp("CURP")).thenReturn(Optional.of(cliente));
+        respuestaArmadaPara(cliente);
+
+        assertThat(clienteService.obtenerPorCurp("CURP")).isNotNull();
+    }
+
+    @Test
+    void obtenerPorCurp_noExiste_lanzaError404() {
+        when(clienteRepository.findByCurp("CURP")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> clienteService.obtenerPorCurp("CURP"))
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void obtenerPorRfc_existente_regresaElCliente() {
+        Cliente cliente = clienteConId(5);
+        when(clienteRepository.findByRfc("RFC")).thenReturn(Optional.of(cliente));
+        respuestaArmadaPara(cliente);
+
+        assertThat(clienteService.obtenerPorRfc("RFC")).isNotNull();
+    }
+
+    @Test
+    void obtenerPorRfc_noExiste_lanzaError404() {
+        when(clienteRepository.findByRfc("RFC")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> clienteService.obtenerPorRfc("RFC"))
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void obtenerPorCorreo_existente_regresaElCliente() {
+        Cliente cliente = clienteConId(6);
+        when(clienteRepository.findByCorreoElectronico("a@correo.com")).thenReturn(Optional.of(cliente));
+        respuestaArmadaPara(cliente);
+
+        assertThat(clienteService.obtenerPorCorreo("a@correo.com")).isNotNull();
+    }
+
+    @Test
+    void obtenerPorCorreo_noExiste_lanzaError404() {
+        when(clienteRepository.findByCorreoElectronico("a@correo.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> clienteService.obtenerPorCorreo("a@correo.com"))
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void obtenerPorNumeroCuenta_existente_regresaElClienteDeEsaCuenta() {
+        Cliente cliente = clienteConId(7);
+        Cuenta cuenta = new Cuenta();
+        cuenta.setCliente(cliente);
+        when(cuentaRepository.findByNumeroCuenta("1234567890")).thenReturn(Optional.of(cuenta));
+        respuestaArmadaPara(cliente);
+
+        assertThat(clienteService.obtenerPorNumeroCuenta("1234567890")).isNotNull();
+    }
+
+    // ---------- actualizacion ----------
+
+    private com.proyecto.servicios.model.clientes.ClienteActualizaRequest actualizacion() {
+        com.proyecto.servicios.model.clientes.ClienteActualizaRequest request =
+                new com.proyecto.servicios.model.clientes.ClienteActualizaRequest();
+        request.setCorreoElectronico("nuevo@correo.com");
+        request.setNacionalidadId(1);
+        request.setDomicilio(new DomicilioRequest());
+        return request;
+    }
+
+    @Test
+    void actualizarCliente_datosValidos_actualizaClienteYDomicilio() {
+        Cliente cliente = clienteConId(8);
+        Domicilio domicilio = new Domicilio();
+        com.proyecto.servicios.model.clientes.ClienteActualizaRequest request = actualizacion();
+        when(clienteRepository.findById(8)).thenReturn(Optional.of(cliente));
+        when(clienteRepository.findByCorreoElectronico("nuevo@correo.com")).thenReturn(Optional.empty());
+        when(nacionalidadService.buscarPorId(1)).thenReturn(new Nacionalidad());
+        when(domicilioRepository.findByClienteId(8)).thenReturn(Optional.of(domicilio));
+        when(clienteMapper.toResponse(cliente)).thenReturn(new ClienteResponse());
+        when(cuentaRepository.findByClienteId(8)).thenReturn(Optional.empty());
+
+        ClienteResponse resultado = clienteService.actualizarCliente(8, request);
+
+        assertThat(resultado).isNotNull();
+        verify(clienteMapper).actualizarEntity(request, cliente);
+        verify(clienteRepository).save(cliente);
+        verify(domicilioRepository).save(domicilio);
+    }
+
+    @Test
+    void actualizarCliente_conCorreoDeOtroCliente_lanzaError409() {
+        Cliente cliente = clienteConId(8);
+        when(clienteRepository.findById(8)).thenReturn(Optional.of(cliente));
+        when(clienteRepository.findByCorreoElectronico("nuevo@correo.com")).thenReturn(Optional.of(clienteConId(99)));
+
+        assertThatThrownBy(() -> clienteService.actualizarCliente(8, actualizacion()))
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
+
+        verify(clienteRepository, never()).save(any());
+    }
+
+    @Test
+    void actualizarCliente_conSuMismoCorreo_noLoConsideraDuplicado() {
+        Cliente cliente = clienteConId(8);
+        when(clienteRepository.findById(8)).thenReturn(Optional.of(cliente));
+        when(clienteRepository.findByCorreoElectronico("nuevo@correo.com")).thenReturn(Optional.of(cliente));
+        when(nacionalidadService.buscarPorId(1)).thenReturn(new Nacionalidad());
+        when(domicilioRepository.findByClienteId(8)).thenReturn(Optional.of(new Domicilio()));
+        when(clienteMapper.toResponse(cliente)).thenReturn(new ClienteResponse());
+        when(cuentaRepository.findByClienteId(8)).thenReturn(Optional.empty());
+
+        assertThat(clienteService.actualizarCliente(8, actualizacion())).isNotNull();
+    }
+
+    @Test
+    void actualizarCliente_sinDomicilioRegistrado_lanzaError404() {
+        Cliente cliente = clienteConId(8);
+        when(clienteRepository.findById(8)).thenReturn(Optional.of(cliente));
+        when(clienteRepository.findByCorreoElectronico("nuevo@correo.com")).thenReturn(Optional.empty());
+        when(nacionalidadService.buscarPorId(1)).thenReturn(new Nacionalidad());
+        when(domicilioRepository.findByClienteId(8)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> clienteService.actualizarCliente(8, actualizacion()))
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void crearCliente_numeroDeCuentaGeneradoYaExiste_generaOtro() {
+        ClienteRequest request = new ClienteRequest();
+        request.setCurp("CURP-NUEVA");
+        request.setRfc("RFC-NUEVO");
+        request.setCorreoElectronico("nuevo@correo.com");
+        request.setPassword("contrasena123");
+        request.setNacionalidadId(1);
+        request.setDomicilio(new DomicilioRequest());
+        Cliente clienteMapeado = new Cliente();
+        Cliente guardado = clienteConId(9);
+        when(clienteMapper.toEntity(request)).thenReturn(clienteMapeado);
+        when(nacionalidadService.buscarPorId(1)).thenReturn(new Nacionalidad());
+        when(clienteRepository.save(clienteMapeado)).thenReturn(guardado);
+        when(clienteMapper.toEntity(request.getDomicilio())).thenReturn(new Domicilio());
+        when(cuentaRepository.existsByNumeroCuenta(any())).thenReturn(true, false);
+        respuestaArmadaPara(guardado);
+
+        clienteService.crearCliente(request);
+
+        verify(cuentaRepository, times(2)).existsByNumeroCuenta(any());
+    }
 }
