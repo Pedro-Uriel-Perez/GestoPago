@@ -1,5 +1,7 @@
 package com.proyecto.servicios.service.Impl;
 
+import org.springframework.http.HttpStatus;
+import com.proyecto.servicios.exception.NegocioException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.proyecto.servicios.client.GestoPagoSenTxClient;
@@ -8,17 +10,6 @@ import com.proyecto.servicios.entity.clientes.Cuenta;
 import com.proyecto.servicios.entity.clientes.Saldo;
 import com.proyecto.servicios.entity.compras.ConciliacionPendiente;
 import com.proyecto.servicios.entity.gestopago.GestoPagoProducto;
-import com.proyecto.servicios.exception.ClienteInactivoException;
-import com.proyecto.servicios.exception.CodigoVerificacionInvalidoException;
-import com.proyecto.servicios.exception.CompraPendienteExistenteException;
-import com.proyecto.servicios.exception.CuentaNoEncontradaException;
-import com.proyecto.servicios.exception.DatosCompraInvalidosException;
-import com.proyecto.servicios.exception.GestoPagoSenTxRechazadoException;
-import com.proyecto.servicios.exception.OperacionCompraNoEncontradaException;
-import com.proyecto.servicios.exception.OperacionNoAutorizadaException;
-import com.proyecto.servicios.exception.ProductoGestoPagoNoEncontradoException;
-import com.proyecto.servicios.exception.SaldoInsuficienteException;
-import com.proyecto.servicios.exception.TransaccionGestoPagoIndeterminadaException;
 import com.proyecto.servicios.model.compras.CompraConfirmarRequest;
 import com.proyecto.servicios.model.compras.CompraIniciadaResponse;
 import com.proyecto.servicios.model.compras.CompraPendiente;
@@ -100,25 +91,25 @@ public class CompraServiceImpl implements CompraService {
         Cliente cliente = cuenta.getCliente();
 
         if (!cliente.getId().equals(clienteIdAutenticado)) {
-            throw new OperacionNoAutorizadaException(
+            throw new NegocioException(HttpStatus.FORBIDDEN,
                     "La cuenta indicada no pertenece al cliente autenticado");
         }
         if (!Boolean.TRUE.equals(cliente.getActivo())) {
-            throw new ClienteInactivoException("El cliente no esta activo, no puede realizar compras");
+            throw new NegocioException(HttpStatus.FORBIDDEN, "El cliente no esta activo, no puede realizar compras");
         }
 
         String operacionId = UUID.randomUUID().toString();
         reservarCuentaParaOperacion(cuenta.getId(), operacionId);
         try {
             GestoPagoProducto producto = productoRepository.findByIdProducto(request.getIdProducto())
-                    .orElseThrow(() -> new ProductoGestoPagoNoEncontradoException(
+                    .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND,
                             "No existe un producto GestoPago con idProducto " + request.getIdProducto()));
 
             validarMontoCorrespondeAlCatalogo(producto, request.getMonto());
 
             BigDecimal saldoActual = saldoVigente(cuenta.getId());
             if (saldoActual.compareTo(request.getMonto()) < 0) {
-                throw new SaldoInsuficienteException("El saldo de la cuenta es insuficiente para esta compra");
+                throw new NegocioException(HttpStatus.CONFLICT, "El saldo de la cuenta es insuficiente para esta compra");
             }
 
             String telefono = resolverTelefono(producto, request);
@@ -159,7 +150,7 @@ public class CompraServiceImpl implements CompraService {
     private void reservarCuentaParaOperacion(Integer cuentaId, String operacionId) {
         Boolean reservada = redisTemplate.opsForValue().setIfAbsent(claveActiva(cuentaId), operacionId, TTL_OPERACION);
         if (!Boolean.TRUE.equals(reservada)) {
-            throw new CompraPendienteExistenteException(
+            throw new NegocioException(HttpStatus.CONFLICT,
                     "Ya existe una compra pendiente de confirmar para esta cuenta, espera a que expire o completala");
         }
     }
@@ -183,40 +174,41 @@ public class CompraServiceImpl implements CompraService {
      *
      * noRollbackFor: cuando el resultado queda indeterminado, el registro de
      * conciliacion (ConciliacionPendiente) se guarda justo antes de lanzar
-     * la excepcion; sin esto el rollback automatico lo borraria. En ese
-     * camino no hay ninguna otra escritura en la transaccion (el descuento
-     * de saldo solo ocurre en el camino exitoso), asi que no hay riesgo de
-     * confirmar algo de mas.
+     * la NegocioException (202); sin esto el rollback automatico lo
+     * borraria. Es seguro aplicarlo a toda NegocioException de este metodo
+     * porque ninguna se lanza despues de escribir otra cosa: el descuento
+     * de saldo es lo ultimo que ocurre y solo en el camino exitoso. Errores
+     * inesperados (de base de datos, etc.) siguen haciendo rollback.
      */
     @Override
-    @Transactional(noRollbackFor = TransaccionGestoPagoIndeterminadaException.class)
+    @Transactional(noRollbackFor = NegocioException.class)
     public CompraResultadoResponse confirmarCompra(CompraConfirmarRequest request, Integer clienteIdAutenticado) {
         CompraPendiente pendiente = leerPendiente(request.getOperacionId())
-                .orElseThrow(() -> new OperacionCompraNoEncontradaException(
+                .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND,
                         "La operacion no existe o ya expiro, inicia la compra nuevamente"));
 
         if (!pendiente.getClienteId().equals(clienteIdAutenticado)) {
-            throw new OperacionNoAutorizadaException("Esta operacion no pertenece al cliente autenticado");
+            throw new NegocioException(HttpStatus.FORBIDDEN, "Esta operacion no pertenece al cliente autenticado");
         }
         if (!pendiente.getCodigoVerificacion().equals(request.getCodigoVerificacion())) {
-            throw new CodigoVerificacionInvalidoException("El codigo de verificacion no es correcto");
+            throw new NegocioException(HttpStatus.UNAUTHORIZED, "El codigo de verificacion no es correcto");
         }
 
         Cuenta cuenta = cuentaRepository.findWithLockingById(pendiente.getCuentaId())
-                .orElseThrow(() -> new CuentaNoEncontradaException("La cuenta de la compra ya no existe"));
+                .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND, "La cuenta de la compra ya no existe"));
 
         // Doble envio (ej. doble clic): la segunda confirmacion de la misma
         // operacion se queda esperando el candado de la primera; cuando lo
         // obtiene, la primera ya la proceso y borro de Redis, asi que aqui
         // se corta sin volver a llamar a GestoPago.
         if (!Boolean.TRUE.equals(redisTemplate.hasKey(clavePendiente(request.getOperacionId())))) {
-            throw new OperacionCompraNoEncontradaException("La operacion ya fue procesada o expiro");
+            throw new NegocioException(HttpStatus.NOT_FOUND, "La operacion ya fue procesada o expiro");
         }
 
         BigDecimal saldoActual = saldoVigente(cuenta.getId());
         if (saldoActual.compareTo(pendiente.getMonto()) < 0) {
             liberarOperacion(request.getOperacionId(), pendiente.getCuentaId());
-            throw new SaldoInsuficienteException("El saldo de la cuenta es insuficiente para esta compra");
+            throw new NegocioException(HttpStatus.CONFLICT, "El saldo de la cuenta es insuficiente para esta compra");
         }
 
         GestoPagoSenTxResponse respuesta = ejecutarSendTxConConciliacion(pendiente);
@@ -232,7 +224,7 @@ public class CompraServiceImpl implements CompraService {
             String mensaje = respuesta.getMensaje() != null && respuesta.getMensaje().getTexto() != null
                     ? respuesta.getMensaje().getTexto()
                     : "GestoPago rechazo la transaccion (codigo " + codigo + ")";
-            throw new GestoPagoSenTxRechazadoException(mensaje);
+            throw new NegocioException(HttpStatus.CONFLICT, mensaje);
         }
 
         BigDecimal saldoRestante = registrarMovimientoSaldo(cuenta, saldoActual, pendiente, respuesta);
@@ -278,7 +270,7 @@ public class CompraServiceImpl implements CompraService {
                     + "Se registra para conciliacion manual, no se reintenta solo. upc={}, idProducto={}",
                     pendiente.getUpc(), pendiente.getIdProducto(), e);
             registrarConciliacionPendiente(pendiente);
-            throw new TransaccionGestoPagoIndeterminadaException(
+            throw new NegocioException(HttpStatus.ACCEPTED,
                     "No fue posible confirmar si la transaccion se proceso en GestoPago. "
                             + "Se va a verificar manualmente, no la reintentes.");
         }
@@ -343,7 +335,7 @@ public class CompraServiceImpl implements CompraService {
             return;
         }
         if (precioCatalogo.compareTo(montoSolicitado) != 0) {
-            throw new DatosCompraInvalidosException(
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
                     "El monto no corresponde al precio de este producto en el catalogo");
         }
     }
@@ -357,7 +349,7 @@ public class CompraServiceImpl implements CompraService {
             return "1111111111";
         }
         if (request.getTelefono() == null) {
-            throw new DatosCompraInvalidosException(
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
                     "Este producto requiere el campo 'telefono'");
         }
         return request.getTelefono();
@@ -369,7 +361,7 @@ public class CompraServiceImpl implements CompraService {
             return null;
         }
         if (request.getReferencia() == null || request.getReferencia().isBlank()) {
-            throw new DatosCompraInvalidosException(
+            throw new NegocioException(HttpStatus.BAD_REQUEST,
                     "Este producto requiere el campo 'referencia'");
         }
         return request.getReferencia();
@@ -377,7 +369,7 @@ public class CompraServiceImpl implements CompraService {
 
     private Cuenta buscarCuenta(String numeroCuenta) {
         return cuentaRepository.findByNumeroCuenta(numeroCuenta)
-                .orElseThrow(() -> new CuentaNoEncontradaException(
+                .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND,
                         "No existe una cuenta con el numero " + numeroCuenta));
     }
 

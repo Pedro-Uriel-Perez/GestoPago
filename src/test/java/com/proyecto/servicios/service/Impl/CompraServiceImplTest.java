@@ -1,5 +1,7 @@
 package com.proyecto.servicios.service.Impl;
 
+import org.springframework.http.HttpStatus;
+import com.proyecto.servicios.exception.NegocioException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.proyecto.servicios.client.GestoPagoSenTxClient;
 import com.proyecto.servicios.entity.clientes.Cliente;
@@ -7,17 +9,6 @@ import com.proyecto.servicios.entity.clientes.Cuenta;
 import com.proyecto.servicios.entity.clientes.Saldo;
 import com.proyecto.servicios.entity.compras.ConciliacionPendiente;
 import com.proyecto.servicios.entity.gestopago.GestoPagoProducto;
-import com.proyecto.servicios.exception.ClienteInactivoException;
-import com.proyecto.servicios.exception.CodigoVerificacionInvalidoException;
-import com.proyecto.servicios.exception.CompraPendienteExistenteException;
-import com.proyecto.servicios.exception.CuentaNoEncontradaException;
-import com.proyecto.servicios.exception.DatosCompraInvalidosException;
-import com.proyecto.servicios.exception.GestoPagoSenTxRechazadoException;
-import com.proyecto.servicios.exception.OperacionCompraNoEncontradaException;
-import com.proyecto.servicios.exception.OperacionNoAutorizadaException;
-import com.proyecto.servicios.exception.ProductoGestoPagoNoEncontradoException;
-import com.proyecto.servicios.exception.SaldoInsuficienteException;
-import com.proyecto.servicios.exception.TransaccionGestoPagoIndeterminadaException;
 import com.proyecto.servicios.model.compras.CompraConfirmarRequest;
 import com.proyecto.servicios.model.compras.CompraIniciadaResponse;
 import com.proyecto.servicios.model.compras.CompraPendiente;
@@ -182,43 +173,47 @@ class CompraServiceImplTest {
     // ---------- iniciarCompra ----------
 
     @Test
-    void iniciarCompra_cuentaDeOtroCliente_lanzaOperacionNoAutorizadaException() {
+    void iniciarCompra_cuentaDeOtroCliente_lanzaError403() {
         when(cuentaRepository.findByNumeroCuenta("1234567890")).thenReturn(Optional.of(cuentaDe(clienteActivo())));
 
         assertThatThrownBy(() -> compraService.iniciarCompra(requestRecarga(BigDecimal.TEN), 999))
-                .isInstanceOf(OperacionNoAutorizadaException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.FORBIDDEN);
 
         verify(mailService, never()).enviarCodigoVerificacion(any(), any());
     }
 
     @Test
-    void iniciarCompra_clienteInactivo_lanzaClienteInactivoException() {
+    void iniciarCompra_clienteInactivo_lanzaError403() {
         Cliente cliente = clienteActivo();
         cliente.setActivo(false);
         when(cuentaRepository.findByNumeroCuenta("1234567890")).thenReturn(Optional.of(cuentaDe(cliente)));
 
         assertThatThrownBy(() -> compraService.iniciarCompra(requestRecarga(BigDecimal.TEN), CLIENTE_ID))
-                .isInstanceOf(ClienteInactivoException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.FORBIDDEN);
 
         verify(productoRepository, never()).findByIdProducto(any());
     }
 
     @Test
-    void iniciarCompra_cuentaNoExiste_lanzaCuentaNoEncontradaException() {
+    void iniciarCompra_cuentaNoExiste_lanzaError404() {
         when(cuentaRepository.findByNumeroCuenta("1234567890")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> compraService.iniciarCompra(requestRecarga(BigDecimal.TEN), CLIENTE_ID))
-                .isInstanceOf(CuentaNoEncontradaException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
     }
 
     @Test
-    void iniciarCompra_yaHayUnaCompraPendienteEnLaCuenta_lanzaCompraPendienteExistenteException() {
+    void iniciarCompra_yaHayUnaCompraPendienteEnLaCuenta_lanzaError409() {
         when(cuentaRepository.findByNumeroCuenta("1234567890")).thenReturn(Optional.of(cuentaDe(clienteActivo())));
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.setIfAbsent(eq("compra:cuenta-activa:" + CUENTA_ID), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> compraService.iniciarCompra(requestRecarga(BigDecimal.TEN), CLIENTE_ID))
-                .isInstanceOf(CompraPendienteExistenteException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
 
         verify(productoRepository, never()).findByIdProducto(any());
         verify(mailService, never()).enviarCodigoVerificacion(any(), any());
@@ -232,19 +227,21 @@ class CompraServiceImplTest {
         when(productoRepository.findByIdProducto(582)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> compraService.iniciarCompra(requestRecarga(BigDecimal.TEN), CLIENTE_ID))
-                .isInstanceOf(ProductoGestoPagoNoEncontradoException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
 
         verify(redisTemplate).delete("compra:cuenta-activa:" + CUENTA_ID);
     }
 
     @Test
-    void iniciarCompra_montoDistintoAlPrecioDelCatalogo_lanzaDatosCompraInvalidosException() {
+    void iniciarCompra_montoDistintoAlPrecioDelCatalogo_lanzaError400() {
         when(cuentaRepository.findByNumeroCuenta("1234567890")).thenReturn(Optional.of(cuentaDe(clienteActivo())));
         reservaDeCuentaDisponible();
         when(productoRepository.findByIdProducto(582)).thenReturn(Optional.of(productoRecargaDe10Pesos()));
 
         assertThatThrownBy(() -> compraService.iniciarCompra(requestRecarga(new BigDecimal("1.00")), CLIENTE_ID))
-                .isInstanceOf(DatosCompraInvalidosException.class)
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.BAD_REQUEST)
                 .hasMessageContaining("catalogo");
 
         verify(saldoRepository, never()).findFirstByCuentaIdOrderByFechaMovimientoDesc(any());
@@ -278,14 +275,15 @@ class CompraServiceImplTest {
         when(saldoRepository.findFirstByCuentaIdOrderByFechaMovimientoDesc(CUENTA_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> compraService.iniciarCompra(requestRecarga(BigDecimal.TEN), CLIENTE_ID))
-                .isInstanceOf(SaldoInsuficienteException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
 
         verify(mailService, never()).enviarCodigoVerificacion(any(), any());
         verify(redisTemplate).delete("compra:cuenta-activa:" + CUENTA_ID);
     }
 
     @Test
-    void iniciarCompra_productoTipoFront1SinTelefono_lanzaDatosCompraInvalidosException() {
+    void iniciarCompra_productoTipoFront1SinTelefono_lanzaError400() {
         when(cuentaRepository.findByNumeroCuenta("1234567890")).thenReturn(Optional.of(cuentaDe(clienteActivo())));
         reservaDeCuentaDisponible();
         when(productoRepository.findByIdProducto(582)).thenReturn(Optional.of(productoRecargaDe10Pesos()));
@@ -296,7 +294,8 @@ class CompraServiceImplTest {
         request.setTelefono(null);
 
         assertThatThrownBy(() -> compraService.iniciarCompra(request, CLIENTE_ID))
-                .isInstanceOf(DatosCompraInvalidosException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.BAD_REQUEST);
     }
 
     @Test
@@ -335,30 +334,33 @@ class CompraServiceImplTest {
     // ---------- confirmarCompra ----------
 
     @Test
-    void confirmarCompra_operacionNoExiste_lanzaOperacionCompraNoEncontradaException() {
+    void confirmarCompra_operacionNoExiste_lanzaError404() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get("compra:pendiente:" + OPERACION_ID)).thenReturn(null);
 
         assertThatThrownBy(() -> compraService.confirmarCompra(confirmarConPin("123456"), CLIENTE_ID))
-                .isInstanceOf(OperacionCompraNoEncontradaException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
     }
 
     @Test
-    void confirmarCompra_operacionDeOtroCliente_lanzaOperacionNoAutorizadaException() throws Exception {
+    void confirmarCompra_operacionDeOtroCliente_lanzaError403() throws Exception {
         prepararPendienteEnRedis();
 
         assertThatThrownBy(() -> compraService.confirmarCompra(confirmarConPin("111111"), 999))
-                .isInstanceOf(OperacionNoAutorizadaException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.FORBIDDEN);
 
         verify(senTxClient, never()).sendTx(any());
     }
 
     @Test
-    void confirmarCompra_codigoIncorrecto_lanzaCodigoVerificacionInvalidoException() throws Exception {
+    void confirmarCompra_codigoIncorrecto_lanzaError401() throws Exception {
         prepararPendienteEnRedis();
 
         assertThatThrownBy(() -> compraService.confirmarCompra(confirmarConPin("999999"), CLIENTE_ID))
-                .isInstanceOf(CodigoVerificacionInvalidoException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.UNAUTHORIZED);
 
         verify(senTxClient, never()).sendTx(any());
     }
@@ -370,7 +372,8 @@ class CompraServiceImplTest {
         when(redisTemplate.hasKey("compra:pendiente:" + OPERACION_ID)).thenReturn(false);
 
         assertThatThrownBy(() -> compraService.confirmarCompra(confirmarConPin("111111"), CLIENTE_ID))
-                .isInstanceOf(OperacionCompraNoEncontradaException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
 
         verify(senTxClient, never()).sendTx(any());
         verify(saldoRepository, never()).save(any());
@@ -382,7 +385,8 @@ class CompraServiceImplTest {
         prepararCuentaBloqueadaConSaldo("5.00");
 
         assertThatThrownBy(() -> compraService.confirmarCompra(confirmarConPin("111111"), CLIENTE_ID))
-                .isInstanceOf(SaldoInsuficienteException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
 
         verify(senTxClient, never()).sendTx(any());
         verify(saldoRepository, never()).save(any());
@@ -397,7 +401,8 @@ class CompraServiceImplTest {
         when(senTxClient.sendTx(any())).thenReturn(respuestaGestoPago("02", "Saldo Insuficiente."));
 
         assertThatThrownBy(() -> compraService.confirmarCompra(confirmarConPin("111111"), CLIENTE_ID))
-                .isInstanceOf(GestoPagoSenTxRechazadoException.class)
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT)
                 .hasMessage("Saldo Insuficiente.");
 
         verify(saldoRepository, never()).save(any());
@@ -461,7 +466,8 @@ class CompraServiceImplTest {
         when(senTxClient.confirmTx(any())).thenReturn(respuestaGestoPago("82", "La transaccion no ha sido registrada"));
 
         assertThatThrownBy(() -> compraService.confirmarCompra(confirmarConPin("111111"), CLIENTE_ID))
-                .isInstanceOf(GestoPagoSenTxRechazadoException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
 
         verify(saldoRepository, never()).save(any());
     }
@@ -475,7 +481,8 @@ class CompraServiceImplTest {
         when(senTxClient.confirmTx(any())).thenThrow(RetryableException.class);
 
         assertThatThrownBy(() -> compraService.confirmarCompra(confirmarConPin("111111"), CLIENTE_ID))
-                .isInstanceOf(TransaccionGestoPagoIndeterminadaException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.ACCEPTED);
 
         ArgumentCaptor<ConciliacionPendiente> conciliacion = ArgumentCaptor.forClass(ConciliacionPendiente.class);
         verify(conciliacionRepository).save(conciliacion.capture());

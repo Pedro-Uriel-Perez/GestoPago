@@ -1,8 +1,9 @@
 package com.proyecto.servicios.service.Impl;
 
+import org.springframework.http.HttpStatus;
+import com.proyecto.servicios.exception.NegocioException;
 import com.proyecto.servicios.entity.clientes.Cuenta;
 import com.proyecto.servicios.entity.clientes.Saldo;
-import com.proyecto.servicios.exception.CuentaNoEncontradaException;
 import com.proyecto.servicios.mapper.ClienteMapper;
 import com.proyecto.servicios.model.clientes.CuentaResponse;
 import com.proyecto.servicios.repositorys.clientes.CuentaRepository;
@@ -71,11 +72,12 @@ class CuentaServiceImplTest {
     }
 
     @Test
-    void obtenerPorNumeroCuenta_noExiste_lanzaCuentaNoEncontradaException() {
+    void obtenerPorNumeroCuenta_noExiste_lanzaError404() {
         when(cuentaRepository.findByNumeroCuenta("9999999999")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> cuentaService.obtenerPorNumeroCuenta("9999999999"))
-                .isInstanceOf(CuentaNoEncontradaException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
     }
 
     @Test

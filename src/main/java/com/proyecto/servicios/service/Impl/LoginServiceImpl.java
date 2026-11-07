@@ -1,8 +1,9 @@
 package com.proyecto.servicios.service.Impl;
 
+import org.springframework.http.HttpStatus;
+import com.proyecto.servicios.exception.NegocioException;
 import com.proyecto.servicios.entity.clientes.Cliente;
 import com.proyecto.servicios.entity.clientes.Login;
-import com.proyecto.servicios.exception.CredencialesInvalidasException;
 import com.proyecto.servicios.repositorys.clientes.ClienteRepository;
 import com.proyecto.servicios.repositorys.clientes.LoginRepository;
 import com.proyecto.servicios.security.JwtService;
@@ -53,14 +54,14 @@ public class LoginServiceImpl implements LoginService {
     public String iniciarSesion(String correoElectronico, String passwordPlano) {
         Cliente cliente = clienteRepository.findByCorreoElectronico(correoElectronico)
                 .filter(Cliente::getActivo)
-                .orElseThrow(() -> new CredencialesInvalidasException("Correo o contrasena incorrectos"));
+                .orElseThrow(() -> new NegocioException(HttpStatus.UNAUTHORIZED, "Correo o contrasena incorrectos"));
 
         Login login = loginRepository.findByClienteId(cliente.getId())
-                .orElseThrow(() -> new CredencialesInvalidasException("Correo o contrasena incorrectos"));
+                .orElseThrow(() -> new NegocioException(HttpStatus.UNAUTHORIZED, "Correo o contrasena incorrectos"));
 
         Optional.of(login.getPasswordHash())
                 .filter(hash -> passwordEncoder.matches(passwordPlano, hash))
-                .orElseThrow(() -> new CredencialesInvalidasException("Correo o contrasena incorrectos"));
+                .orElseThrow(() -> new NegocioException(HttpStatus.UNAUTHORIZED, "Correo o contrasena incorrectos"));
 
         String token = jwtService.generarToken(cliente.getId(), cliente.getCorreoElectronico());
 

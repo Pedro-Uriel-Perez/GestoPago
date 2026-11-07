@@ -10,7 +10,7 @@ public interface NacionalidadService {
     List<NacionalidadResponse> obtenerTodas();
 
     /**
-     * Busca la nacionalidad por id o lanza NacionalidadNoEncontradaException.
+     * Busca la nacionalidad por id o lanza NegocioException (404).
      * Publico para que ClienteServiceImpl lo reutilice al armar/actualizar
      * un cliente, sin duplicar la logica de busqueda.
      */

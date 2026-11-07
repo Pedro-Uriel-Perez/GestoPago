@@ -1,8 +1,9 @@
 package com.proyecto.servicios.service.Impl;
 
+import org.springframework.http.HttpStatus;
+import com.proyecto.servicios.exception.NegocioException;
 import com.proyecto.servicios.entity.clientes.Cuenta;
 import com.proyecto.servicios.entity.clientes.Saldo;
-import com.proyecto.servicios.exception.CuentaNoEncontradaException;
 import com.proyecto.servicios.mapper.ClienteMapper;
 import com.proyecto.servicios.model.clientes.CuentaResponse;
 import com.proyecto.servicios.model.clientes.SaldoResponse;
@@ -65,7 +66,7 @@ public class CuentaServiceImpl implements CuentaService {
 
     private Cuenta buscarPorNumeroCuenta(String numeroCuenta) {
         return cuentaRepository.findByNumeroCuenta(numeroCuenta)
-                .orElseThrow(() -> new CuentaNoEncontradaException(
+                .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND,
                         "No existe una cuenta con el numero " + numeroCuenta));
     }
 }

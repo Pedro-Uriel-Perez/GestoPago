@@ -1,13 +1,9 @@
 package com.proyecto.servicios.service.Impl;
 
+import org.springframework.http.HttpStatus;
+import com.proyecto.servicios.exception.NegocioException;
 import com.proyecto.servicios.client.GestoPagoProductListClient;
 import com.proyecto.servicios.entity.gestopago.GestoPagoProducto;
-import com.proyecto.servicios.exception.GestoPagoTokenNoDisponibleException;
-import com.proyecto.servicios.exception.ProductListAuthenticationException;
-import com.proyecto.servicios.exception.ProductListCommunicationException;
-import com.proyecto.servicios.exception.ProductListException;
-import com.proyecto.servicios.exception.ProductListTimeoutException;
-import com.proyecto.servicios.exception.ProductListUnsuccessfulResponseException;
 import com.proyecto.servicios.mapper.ProductoMapper;
 import com.proyecto.servicios.model.productlist.ProductListApiResponse;
 import com.proyecto.servicios.repositorys.gestopago.GestoPagoProductoRepository;
@@ -65,7 +61,7 @@ public class GestoPagoProductListSyncServiceImpl implements GestoPagoProductList
             productoRepository.saveAll(productos);
             log.info("Sincronizacion de catalogo de productos GestoPago finalizada. total={}", productos.size());
 
-        } catch (ProductListException e) {
+        } catch (NegocioException e) {
             log.error("La sincronizacion del catalogo de productos GestoPago fallo, se conserva el catalogo anterior en Postgres: {}", e.getMessage());
         }
     }
@@ -77,35 +73,32 @@ public class GestoPagoProductListSyncServiceImpl implements GestoPagoProductList
                     .filter(r -> r.getMensaje() != null && r.getMensaje().esExitoso())
                     .map(ProductListApiResponse::getProductos)
                     .map(productoMapper::toEntityList)
-                    .orElseThrow(() -> new ProductListUnsuccessfulResponseException(
-                            "GestoPago respondio sin exito al consultar el catalogo de productos", null));
+                    .orElseThrow(() -> new NegocioException(HttpStatus.BAD_GATEWAY,
+                            "GestoPago respondio sin exito al consultar el catalogo de productos"));
 
-        } catch (GestoPagoTokenNoDisponibleException e) {
-            log.error("No hay token GestoPago disponible para sincronizar el catalogo: {}", e.getMessage());
-            throw new ProductListAuthenticationException(
-                    "No hay un token GestoPago activo para sincronizar el catalogo de productos", e);
+        } catch (NegocioException e) {
+            // Ya trae su propio mensaje: respuesta sin exito, o el
+            // interceptor de Feign no encontro un token GestoPago vigente.
+            throw e;
 
         } catch (FeignException.Unauthorized | FeignException.Forbidden e) {
             log.error("GestoPago rechazo la autenticacion al sincronizar el catalogo: status={}", e.status());
-            throw new ProductListAuthenticationException(
+            throw new NegocioException(HttpStatus.BAD_GATEWAY,
                     "No fue posible autenticar con GestoPago para sincronizar el catalogo", e);
 
         } catch (RetryableException e) {
             log.error("GestoPago no respondio a tiempo al sincronizar el catalogo de productos");
-            throw new ProductListTimeoutException(
+            throw new NegocioException(HttpStatus.GATEWAY_TIMEOUT,
                     "GestoPago no respondio a tiempo al sincronizar el catalogo de productos", e);
 
         } catch (FeignException e) {
             log.error("GestoPago respondio con un error al sincronizar el catalogo: status={}", e.status());
-            throw new ProductListUnsuccessfulResponseException(
+            throw new NegocioException(HttpStatus.BAD_GATEWAY,
                     "GestoPago respondio con un error al sincronizar el catalogo de productos", e);
-
-        } catch (ProductListException e) {
-            throw e;
 
         } catch (Exception e) {
             log.error("Error de comunicacion con GestoPago al sincronizar el catalogo: {}", e.getMessage());
-            throw new ProductListCommunicationException(
+            throw new NegocioException(HttpStatus.BAD_GATEWAY,
                     "No fue posible comunicarse con GestoPago para sincronizar el catalogo de productos", e);
         }
     }

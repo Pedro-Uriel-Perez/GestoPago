@@ -82,37 +82,40 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void handleClienteYaRegistrado_devuelve409() {
-        ResponseEntity<GenericResponse> respuesta = handler.handleClienteYaRegistrado(
-                new ClienteYaRegistradoException("Ya existe un cliente registrado con el correo x@x.com"));
+    void handleNegocio_respondeConElStatusYElMensajeDeLaExcepcion() {
+        ResponseEntity<GenericResponse> respuesta = handler.handleNegocio(
+                new NegocioException(HttpStatus.CONFLICT, "Ya existe un cliente registrado con el correo x@x.com"));
 
         assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-        assertThat(respuesta.getBody().getMensaje()).contains("x@x.com");
+        assertThat(respuesta.getBody().getCodigo()).isEqualTo(409);
+        assertThat(respuesta.getBody().getMensaje()).isEqualTo("Ya existe un cliente registrado con el correo x@x.com");
     }
 
     @Test
-    void handleClienteNoEncontrado_devuelve404() {
-        ResponseEntity<GenericResponse> respuesta = handler.handleClienteNoEncontrado(
-                new ClienteNoEncontradoException("No existe un cliente con id 99"));
+    void handleNegocio_conNotFound_devuelve404() {
+        ResponseEntity<GenericResponse> respuesta = handler.handleNegocio(
+                new NegocioException(HttpStatus.NOT_FOUND, "No existe un cliente con id 99"));
 
         assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(respuesta.getBody().getMensaje()).contains("99");
     }
 
     @Test
-    void handleCuentaNoEncontrada_devuelve404() {
-        ResponseEntity<GenericResponse> respuesta = handler.handleCuentaNoEncontrada(
-                new CuentaNoEncontradaException("No existe una cuenta con el numero 0000000000"));
+    void handleNegocio_con202_devuelveElMensajeParaElCliente() {
+        ResponseEntity<GenericResponse> respuesta = handler.handleNegocio(
+                new NegocioException(HttpStatus.ACCEPTED, "Se va a verificar manualmente"));
 
-        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(respuesta.getBody().getMensaje()).isEqualTo("Se va a verificar manualmente");
     }
 
     @Test
-    void handleNacionalidadNoEncontrada_devuelve404() {
-        ResponseEntity<GenericResponse> respuesta = handler.handleNacionalidadNoEncontrada(
-                new NacionalidadNoEncontradaException(999));
+    void handleNegocio_conError5xx_noExponeElMensajeInterno() {
+        ResponseEntity<GenericResponse> respuesta = handler.handleNegocio(
+                new NegocioException(HttpStatus.SERVICE_UNAVAILABLE, "No hay un token GestoPago activo para idDistribuidor=83"));
 
-        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(respuesta.getBody().getMensaje()).contains("999");
+        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(respuesta.getBody().getMensaje()).doesNotContain("idDistribuidor").doesNotContain("token");
     }
 
     @Test
@@ -138,14 +141,5 @@ class GlobalExceptionHandlerTest {
         assertThat(respuesta.getBody().getMensaje())
                 .contains("id")
                 .contains("no-es-un-id");
-    }
-
-    @Test
-    void handleCredencialesInvalidas_devuelve401() {
-        ResponseEntity<GenericResponse> respuesta = handler.handleCredencialesInvalidas(
-                new CredencialesInvalidasException("Correo o contrasena incorrectos"));
-
-        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        assertThat(respuesta.getBody().getMensaje()).isEqualTo("Correo o contrasena incorrectos");
     }
 }

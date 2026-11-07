@@ -1,13 +1,11 @@
 package com.proyecto.servicios.service.Impl;
 
+import org.springframework.http.HttpStatus;
+import com.proyecto.servicios.exception.NegocioException;
 import com.proyecto.servicios.entity.clientes.Cliente;
 import com.proyecto.servicios.entity.clientes.Cuenta;
 import com.proyecto.servicios.entity.clientes.Domicilio;
 import com.proyecto.servicios.entity.clientes.Nacionalidad;
-import com.proyecto.servicios.exception.ClienteNoEncontradoException;
-import com.proyecto.servicios.exception.ClienteYaRegistradoException;
-import com.proyecto.servicios.exception.CurpDuplicadaException;
-import com.proyecto.servicios.exception.RfcDuplicadoException;
 import com.proyecto.servicios.mapper.ClienteMapper;
 import com.proyecto.servicios.model.clientes.ClienteBusquedaRequest;
 import com.proyecto.servicios.model.clientes.ClienteRequest;
@@ -111,7 +109,7 @@ class ClienteServiceImplTest {
     }
 
     @Test
-    void crearCliente_conCurpYaRegistrada_lanzaCurpDuplicadaException() {
+    void crearCliente_conCurpYaRegistrada_lanzaError409() {
         ClienteRequest request = new ClienteRequest();
         request.setCurp("CURP-EXISTENTE");
         request.setRfc("RFC-NUEVO");
@@ -120,13 +118,14 @@ class ClienteServiceImplTest {
         when(clienteRepository.findByCurp(request.getCurp())).thenReturn(Optional.of(new Cliente()));
 
         assertThatThrownBy(() -> clienteService.crearCliente(request))
-                .isInstanceOf(CurpDuplicadaException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
 
         verify(clienteRepository, never()).save(any());
     }
 
     @Test
-    void crearCliente_conRfcYaRegistrado_lanzaRfcDuplicadoException() {
+    void crearCliente_conRfcYaRegistrado_lanzaError409() {
         ClienteRequest request = new ClienteRequest();
         request.setCurp("CURP-NUEVA");
         request.setRfc("RFC-EXISTENTE");
@@ -136,13 +135,14 @@ class ClienteServiceImplTest {
         when(clienteRepository.findByRfc(request.getRfc())).thenReturn(Optional.of(new Cliente()));
 
         assertThatThrownBy(() -> clienteService.crearCliente(request))
-                .isInstanceOf(RfcDuplicadoException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
 
         verify(clienteRepository, never()).save(any());
     }
 
     @Test
-    void crearCliente_conCorreoYaRegistrado_lanzaClienteYaRegistradoException() {
+    void crearCliente_conCorreoYaRegistrado_lanzaError409() {
         ClienteRequest request = new ClienteRequest();
         request.setCurp("CURP-NUEVA");
         request.setRfc("RFC-NUEVO");
@@ -154,17 +154,19 @@ class ClienteServiceImplTest {
                 .thenReturn(Optional.of(new Cliente()));
 
         assertThatThrownBy(() -> clienteService.crearCliente(request))
-                .isInstanceOf(ClienteYaRegistradoException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
 
         verify(clienteRepository, never()).save(any());
     }
 
     @Test
-    void obtenerPorId_clienteNoExiste_lanzaClienteNoEncontradoException() {
+    void obtenerPorId_clienteNoExiste_lanzaError404() {
         when(clienteRepository.findById(99)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> clienteService.obtenerPorId(99))
-                .isInstanceOf(ClienteNoEncontradoException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
     }
 
     @Test
@@ -184,11 +186,12 @@ class ClienteServiceImplTest {
     }
 
     @Test
-    void obtenerPorNumeroCuenta_cuentaNoExiste_lanzaCuentaNoEncontradaException() {
+    void obtenerPorNumeroCuenta_cuentaNoExiste_lanzaError404() {
         when(cuentaRepository.findByNumeroCuenta("0000000000")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> clienteService.obtenerPorNumeroCuenta("0000000000"))
-                .isInstanceOf(com.proyecto.servicios.exception.CuentaNoEncontradaException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
     }
 
     @Test

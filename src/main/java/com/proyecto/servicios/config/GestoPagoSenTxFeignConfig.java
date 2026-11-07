@@ -1,7 +1,8 @@
 package com.proyecto.servicios.config;
 
+import org.springframework.http.HttpStatus;
+import com.proyecto.servicios.exception.NegocioException;
 import com.proyecto.servicios.entity.gestopago.GestoPagoToken;
-import com.proyecto.servicios.exception.GestoPagoTokenNoDisponibleException;
 import com.proyecto.servicios.service.GestoPagoTokenService;
 import feign.RequestInterceptor;
 import org.springframework.beans.factory.annotation.Value;
@@ -46,7 +47,7 @@ public class GestoPagoSenTxFeignConfig {
     private String obtenerTokenVigente() {
         return gestoPagoTokenService.obtenerTokenActivo(idDistribuidor, codigoDispositivo)
                 .map(GestoPagoToken::getToken)
-                .orElseThrow(() -> new GestoPagoTokenNoDisponibleException(
+                .orElseThrow(() -> new NegocioException(HttpStatus.SERVICE_UNAVAILABLE,
                         "No hay un token GestoPago activo para idDistribuidor=" + idDistribuidor));
     }
 }

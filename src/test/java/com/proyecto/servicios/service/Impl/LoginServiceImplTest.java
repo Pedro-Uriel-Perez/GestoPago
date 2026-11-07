@@ -1,8 +1,9 @@
 package com.proyecto.servicios.service.Impl;
 
+import org.springframework.http.HttpStatus;
+import com.proyecto.servicios.exception.NegocioException;
 import com.proyecto.servicios.entity.clientes.Cliente;
 import com.proyecto.servicios.entity.clientes.Login;
-import com.proyecto.servicios.exception.CredencialesInvalidasException;
 import com.proyecto.servicios.repositorys.clientes.ClienteRepository;
 import com.proyecto.servicios.repositorys.clientes.LoginRepository;
 import com.proyecto.servicios.security.JwtService;
@@ -81,7 +82,7 @@ class LoginServiceImplTest {
     }
 
     @Test
-    void iniciarSesion_contrasenaIncorrecta_lanzaCredencialesInvalidasException() {
+    void iniciarSesion_contrasenaIncorrecta_lanzaError401() {
         Cliente cliente = new Cliente();
         cliente.setId(1);
         cliente.setCorreoElectronico("cliente@correo.com");
@@ -93,13 +94,14 @@ class LoginServiceImplTest {
         when(loginRepository.findByClienteId(1)).thenReturn(Optional.of(login));
 
         assertThatThrownBy(() -> loginService.iniciarSesion("cliente@correo.com", "contrasena-equivocada"))
-                .isInstanceOf(CredencialesInvalidasException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.UNAUTHORIZED);
 
         verify(loginRepository, never()).save(any());
     }
 
     @Test
-    void iniciarSesion_clienteDadoDeBaja_lanzaCredencialesInvalidasException() {
+    void iniciarSesion_clienteDadoDeBaja_lanzaError401() {
         Cliente cliente = new Cliente();
         cliente.setId(1);
         cliente.setCorreoElectronico("cliente@correo.com");
@@ -108,18 +110,20 @@ class LoginServiceImplTest {
         when(clienteRepository.findByCorreoElectronico("cliente@correo.com")).thenReturn(Optional.of(cliente));
 
         assertThatThrownBy(() -> loginService.iniciarSesion("cliente@correo.com", "contrasena123"))
-                .isInstanceOf(CredencialesInvalidasException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.UNAUTHORIZED);
 
         verify(loginRepository, never()).findByClienteId(any());
         verify(loginRepository, never()).save(any());
     }
 
     @Test
-    void iniciarSesion_correoNoExiste_lanzaCredencialesInvalidasException() {
+    void iniciarSesion_correoNoExiste_lanzaError401() {
         when(clienteRepository.findByCorreoElectronico("no-existe@correo.com")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> loginService.iniciarSesion("no-existe@correo.com", "cualquier-cosa"))
-                .isInstanceOf(CredencialesInvalidasException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.UNAUTHORIZED);
 
         verify(loginRepository, never()).save(any());
     }

@@ -125,7 +125,7 @@ esquema.
 
 `ClienteRequest`/`ClienteActualizaRequest` ahora piden `nacionalidadId`
 (no el texto); el servicio valida que exista en el catálogo
-(`NacionalidadNoEncontradaException`, 404, si no) y lo resuelve antes de
+(`NegocioException` con 404 si no) y lo resuelve antes de
 guardar. `ClienteResponse` devuelve ambos: `nacionalidadId` y `nacionalidad`
 (el nombre legible), para no obligar al consumidor de la API a hacer un
 segundo lookup solo para mostrar el dato. `GET /nacionalidades` expone el
@@ -215,7 +215,7 @@ complicaría la verificación sin necesidad.
 
 `POST /login` ahora exige `correoElectronico` + `password`. Si el correo no
 existe, la contraseña no coincide, o el cliente está dado de baja
-(`activo = false`), responde igual (401, `CredencialesInvalidasException`,
+(`activo = false`), responde igual (401, `NegocioException`,
 mismo mensaje genérico) para no revelar si un correo está registrado ni si
 una cuenta en particular está desactivada.
 
@@ -241,11 +241,11 @@ el service — igual que el resto del proyecto:
   JSON real**, no como texto (ver "JSON mal formado" abajo).
 - Unicidad de CURP/RFC/correo: se valida en el service (no es posible con
   Bean Validation, requiere consultar la base de datos), lanzando
-  excepciones tipadas (`CurpDuplicadaException`, `RfcDuplicadoException`,
-  `ClienteYaRegistradoException`) resueltas por `GlobalExceptionHandler` —
-  sin `if`, usando `Optional.ifPresent(...)` para disparar la excepción.
+  `NegocioException` con 409 y el mensaje del campo duplicado, resuelta por
+  `GlobalExceptionHandler` — sin `if`, usando `Optional.ifPresent(...)` para
+  disparar la excepción.
 - Nacionalidad válida: `nacionalidadId` debe existir en el catálogo
-  (`NacionalidadNoEncontradaException`, 404, si no) — se valida en el
+  (`NegocioException` con 404 si no) — se valida en el
   service por la misma razón que CURP/RFC/correo (requiere la BD).
 - No se permite modificar CURP/RFC/número de cuenta: `ClienteActualizaRequest`
   simplemente no incluye esos campos.
@@ -266,12 +266,21 @@ exponiendo rutas internas del servidor. Dos cambios lo resuelven:
   cuando Jackson lo sabe decir (ej. `"El campo 'fechaNacimiento' tiene un
   formato invalido: '1999-11/08'"`).
 
-## Excepciones personalizadas
-`ClienteNoEncontradoException`, `CuentaNoEncontradaException`,
-`CurpDuplicadaException`, `RfcDuplicadoException` (ambas heredan de
-`ClienteYaRegistradoException`) y `NacionalidadNoEncontradaException`,
-manejadas en `GlobalExceptionHandler` (409 para duplicados, 404 para no
-encontrados, 400 para JSON mal formado o errores de Bean Validation).
+## Excepciones
+Hay una sola excepción de negocio para toda la aplicación,
+`NegocioException`, que lleva el status HTTP y el mensaje (por ejemplo
+`new NegocioException(HttpStatus.NOT_FOUND, "No existe un cliente con id 5")`).
+En lugar de una clase por cada error, cada caso se lanza con esta misma
+clase, y `GlobalExceptionHandler` la atiende en un solo método
+(`handleNegocio`): 409 para duplicados, 404 para no encontrados, 401 para
+credenciales inválidas, etc. Los 5xx responden un mensaje genérico para no
+exponer detalles internos.
+
+Los demás manejadores de `GlobalExceptionHandler` son para errores que no
+lanza el código propio sino Spring o librerías externas: errores de Bean
+Validation y JSON mal formado (400), fallas de correo y del proveedor
+externo, y un manejador de último recurso para que nunca se devuelva un
+stack trace.
 
 ## Endpoints
 | Método | Endpoint | Descripción | Requiere JWT |
@@ -281,12 +290,9 @@ encontrados, 400 para JSON mal formado o errores de Bean Validation).
 | GET | `/clientes/{id}` | Cliente por id | Sí |
 | PUT | `/clientes/{id}` | Actualiza datos personales/contacto/domicilio/laborales | Sí |
 | DELETE | `/clientes/{id}` | Baja lógica (activo = false) | Sí |
-| GET | `/clientes/curp/{curp}` | Cliente por CURP | Sí |
-| GET | `/clientes/rfc/{rfc}` | Cliente por RFC | Sí |
-| GET | `/clientes/correo/{correo}` | Cliente por correo | Sí |
-| GET | `/clientes/cuenta/{numeroCuenta}` | Cliente por número de cuenta | Sí |
-| GET | `/clientes/activos` | Solo clientes activos | Sí |
-| GET | `/clientes/rango-fechas?desde=...&hasta=...` | Clientes registrados en un rango | Sí |
+| POST | `/clientes/buscar` | Búsqueda con filtros combinables en el body (`curp`, `rfc`, `correoElectronico`, `numeroCuenta`, `activo`, `fechaRegistroDesde`, `fechaRegistroHasta`); sin coincidencias devuelve lista vacía | Sí |
+| POST | `/compras` | Inicia una compra GestoPago y envía el PIN por correo (ver `compras-gestopago.md`) | Sí |
+| POST | `/compras/confirmar` | Confirma la compra con el PIN y la ejecuta en GestoPago | Sí |
 | GET | `/cuentas/{numeroCuenta}` | Cuenta + saldo actual | Sí |
 | GET | `/cuentas/activas` | Cuentas con estatus ACTIVA | Sí |
 | GET | `/cuentas/{numeroCuenta}/saldos` | Historial de saldos | Sí |
@@ -313,12 +319,12 @@ copiar el valor de `jwt` de la respuesta, y pegarlo en el botón
   inactiva), inicio de sesión exitoso, contraseña incorrecta, cliente dado
   de baja, correo no registrado, cierre de sesión, cierre por inactividad.
 - `NacionalidadServiceImplTest`: listado completo del catálogo, búsqueda por
-  id existente, id inexistente (`NacionalidadNoEncontradaException`).
+  id existente, id inexistente (`NegocioException` con 404).
 - `GlobalExceptionHandlerTest`: errores de Bean Validation (400 con todos los
   mensajes), JSON mal formado con campo y valor identificables (400), JSON
-  mal formado sin causa reconocible (400 genérico), y los 404/409/401 de
-  cada excepción de negocio (cliente/cuenta/nacionalidad no encontrados,
-  cliente duplicado, credenciales inválidas).
+  mal formado sin causa reconocible (400 genérico), y el manejador único de
+  `NegocioException` (respeta el status de la excepción y no expone el
+  mensaje interno en los 5xx).
 
 ## Evidencias de pruebas realizadas
 Ejecutado contra la API real (Postgres local, `./gradlew bootRun`) el

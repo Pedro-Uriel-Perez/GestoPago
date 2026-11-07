@@ -1,7 +1,8 @@
 package com.proyecto.servicios.service.Impl;
 
+import org.springframework.http.HttpStatus;
+import com.proyecto.servicios.exception.NegocioException;
 import com.proyecto.servicios.entity.clientes.Nacionalidad;
-import com.proyecto.servicios.exception.NacionalidadNoEncontradaException;
 import com.proyecto.servicios.model.clientes.NacionalidadResponse;
 import com.proyecto.servicios.repositorys.clientes.NacionalidadRepository;
 import com.proyecto.servicios.service.NacionalidadService;
@@ -29,7 +30,7 @@ public class NacionalidadServiceImpl implements NacionalidadService {
     @Override
     public Nacionalidad buscarPorId(Integer id) {
         return nacionalidadRepository.findById(id)
-                .orElseThrow(() -> new NacionalidadNoEncontradaException(id));
+                .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND, "No existe una nacionalidad con id " + id));
     }
 
     private NacionalidadResponse construirRespuesta(Nacionalidad nacionalidad) {

@@ -149,26 +149,25 @@ No se agregó una URL ni un token nuevos para GestoPago: se reutilizan
 | Service (sincronización) | `GestoPagoProductListSyncService` / `Impl` | Llama a GestoPago una vez al día, valida el `MENSAJE.CODIGO`, traduce errores, guarda en Postgres e invalida Redis. |
 | Service (lectura) | `ProductListService` / `ProductListServiceImpl` | Lee de Redis o Postgres. Nunca llama a GestoPago. |
 | Controller | `ProductoController` | Expone `GET /productos`. |
-| Excepciones | `exception/ProductList*Exception`, `GestoPagoTokenNoDisponibleException` | Ver manejo de errores. |
+| Excepciones | `exception/NegocioException` (la única excepción de negocio del proyecto) | Ver manejo de errores. |
 
 ## Manejo de errores
 Ocurren dentro de `GestoPagoProductListSyncServiceImpl.consultarCatalogoVigente()`,
-distinguidos por **tipo de excepción** (sin `if`):
+que traduce cada falla a una `NegocioException` con su status y mensaje:
 
-| Situación | Excepción lanzada | Efecto en `sincronizarProductos()` |
+| Situación | Status de la `NegocioException` | Efecto en `sincronizarProductos()` |
 |---|---|---|
-| No hay token GestoPago activo todavía | `ProductListAuthenticationException` | Se captura, se loguea; Postgres no se toca |
-| GestoPago rechaza el token (401/403) | `ProductListAuthenticationException` | idem |
-| Timeout de conexión/lectura (`RetryableException`) | `ProductListTimeoutException` | idem |
-| GestoPago responde con otro status de error HTTP | `ProductListUnsuccessfulResponseException` | idem |
-| `MENSAJE.CODIGO` distinto de `"01"` (error de negocio con HTTP 200) | `ProductListUnsuccessfulResponseException` | idem |
-| Cualquier otro error (red, IO, etc.) | `ProductListCommunicationException` | idem |
+| No hay token GestoPago activo todavía | 503 (lo lanza el interceptor de Feign) | Se captura, se loguea; Postgres no se toca |
+| GestoPago rechaza el token (401/403) | 502 | idem |
+| Timeout de conexión/lectura (`RetryableException`) | 504 | idem |
+| GestoPago responde con otro status de error HTTP | 502 | idem |
+| `MENSAJE.CODIGO` distinto de `"01"` (error de negocio con HTTP 200) | 502 | idem |
+| Cualquier otro error (red, IO, etc.) | 502 | idem |
 
 Como la sincronización corre en una tarea programada (no en una petición
 HTTP), estas excepciones **no llegan a `GlobalExceptionHandler`**: se
 capturan y registran (`log.error`) dentro del propio
-`sincronizarProductos()`. `GlobalExceptionHandler` conserva solo el manejo
-de `MethodArgumentNotValidException` (validación de los `*Request`).
+`sincronizarProductos()`.
 
 ## Logging
 Se registra inicio y fin de cada sincronización y de cada consulta a

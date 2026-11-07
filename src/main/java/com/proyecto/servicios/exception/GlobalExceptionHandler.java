@@ -12,9 +12,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.mail.MailException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
@@ -24,23 +24,34 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Punto unico de manejo de errores de la API. Las validaciones de los
- * *Request se declaran con Bean Validation y llegan aqui como
- * MethodArgumentNotValidException, sin necesidad de condicionales en los
- * controllers/services.
+ * Punto unico de manejo de errores de la API.
  *
- * Las excepciones ProductList*Exception (autenticacion, timeout, respuesta
- * no exitosa, comunicacion) no se manejan aqui: ocurren dentro del job
- * programado GestoPagoProductListSyncServiceImpl, fuera de una peticion
- * HTTP, y se registran (log) ahi mismo.
- *
- * Las excepciones de Onboarding de Clientes (Cliente/Cuenta no encontrado,
- * CURP/RFC/correo duplicado) si se manejan aqui, porque ocurren dentro de
- * una peticion HTTP normal (ClienteController/CuentaController).
+ * Todos los errores de negocio llegan como una sola excepcion,
+ * NegocioException, que ya trae el status HTTP y el mensaje, y se atienden
+ * en un solo metodo (handleNegocio). Los demas manejadores son para
+ * errores que no lanza el codigo propio sino Spring o librerias externas
+ * (validacion de campos, JSON mal formado, correo, Feign) y un catch-all
+ * para que nunca se exponga un stack trace.
  */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /**
+     * Para los 5xx no se reenvia el mensaje interno (puede traer datos de
+     * configuracion o del proveedor externo): se registra en el log y al
+     * cliente se le da un mensaje generico.
+     */
+    @ExceptionHandler(NegocioException.class)
+    public ResponseEntity<GenericResponse> handleNegocio(NegocioException ex) {
+        HttpStatus status = ex.getStatus();
+        if (status.is5xxServerError()) {
+            log.error("Error de negocio {}: {}", status.value(), ex.getMessage());
+            return construirRespuesta(status, "El servicio no esta disponible en este momento, intenta de nuevo mas tarde");
+        }
+        log.warn("Error de negocio {}: {}", status.value(), ex.getMessage());
+        return construirRespuesta(status, ex.getMessage());
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<GenericResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
@@ -83,113 +94,11 @@ public class GlobalExceptionHandler {
         return construirRespuesta(HttpStatus.BAD_REQUEST, mensaje);
     }
 
-    @ExceptionHandler(ClienteYaRegistradoException.class)
-    public ResponseEntity<GenericResponse> handleClienteYaRegistrado(ClienteYaRegistradoException ex) {
-        log.warn("Intento de registrar un cliente duplicado: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.CONFLICT, ex.getMessage());
-    }
-
-    @ExceptionHandler(ClienteNoEncontradoException.class)
-    public ResponseEntity<GenericResponse> handleClienteNoEncontrado(ClienteNoEncontradoException ex) {
-        log.warn("Cliente no encontrado: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-
-    @ExceptionHandler(CuentaNoEncontradaException.class)
-    public ResponseEntity<GenericResponse> handleCuentaNoEncontrada(CuentaNoEncontradaException ex) {
-        log.warn("Cuenta no encontrada: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-
-    @ExceptionHandler(NacionalidadNoEncontradaException.class)
-    public ResponseEntity<GenericResponse> handleNacionalidadNoEncontrada(NacionalidadNoEncontradaException ex) {
-        log.warn("Nacionalidad no encontrada: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-
-    @ExceptionHandler(CredencialesInvalidasException.class)
-    public ResponseEntity<GenericResponse> handleCredencialesInvalidas(CredencialesInvalidasException ex) {
-        log.warn("Intento de login con credenciales invalidas");
-        return construirRespuesta(HttpStatus.UNAUTHORIZED, ex.getMessage());
-    }
-
-    @ExceptionHandler(ClienteInactivoException.class)
-    public ResponseEntity<GenericResponse> handleClienteInactivo(ClienteInactivoException ex) {
-        log.warn("Operacion rechazada, cliente inactivo: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.FORBIDDEN, ex.getMessage());
-    }
-
-    @ExceptionHandler(SaldoInsuficienteException.class)
-    public ResponseEntity<GenericResponse> handleSaldoInsuficiente(SaldoInsuficienteException ex) {
-        log.warn("Saldo insuficiente: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.CONFLICT, ex.getMessage());
-    }
-
-    @ExceptionHandler(ProductoGestoPagoNoEncontradoException.class)
-    public ResponseEntity<GenericResponse> handleProductoGestoPagoNoEncontrado(ProductoGestoPagoNoEncontradoException ex) {
-        log.warn("Producto GestoPago no encontrado: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-
-    @ExceptionHandler(OperacionCompraNoEncontradaException.class)
-    public ResponseEntity<GenericResponse> handleOperacionCompraNoEncontrada(OperacionCompraNoEncontradaException ex) {
-        log.warn("Operacion de compra no encontrada o expirada: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-
-    @ExceptionHandler(CodigoVerificacionInvalidoException.class)
-    public ResponseEntity<GenericResponse> handleCodigoVerificacionInvalido(CodigoVerificacionInvalidoException ex) {
-        log.warn("Codigo de verificacion (2FA) invalido: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.UNAUTHORIZED, ex.getMessage());
-    }
-
-    @ExceptionHandler(GestoPagoSenTxRechazadoException.class)
-    public ResponseEntity<GenericResponse> handleGestoPagoSenTxRechazado(GestoPagoSenTxRechazadoException ex) {
-        log.warn("GestoPago rechazo la transaccion: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.CONFLICT, ex.getMessage());
-    }
-
-    @ExceptionHandler(DatosCompraInvalidosException.class)
-    public ResponseEntity<GenericResponse> handleDatosCompraInvalidos(DatosCompraInvalidosException ex) {
-        log.warn("Datos de compra invalidos: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.BAD_REQUEST, ex.getMessage());
-    }
-
     @ExceptionHandler(MailException.class)
     public ResponseEntity<GenericResponse> handleMailException(MailException ex) {
         log.error("No fue posible enviar el correo de verificacion: {}", ex.getMessage());
         return construirRespuesta(HttpStatus.SERVICE_UNAVAILABLE,
                 "No fue posible enviar el codigo de verificacion por correo, intenta de nuevo mas tarde");
-    }
-
-    @ExceptionHandler(OperacionNoAutorizadaException.class)
-    public ResponseEntity<GenericResponse> handleOperacionNoAutorizada(OperacionNoAutorizadaException ex) {
-        log.warn("Operacion no autorizada: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.FORBIDDEN, ex.getMessage());
-    }
-
-    @ExceptionHandler(CompraPendienteExistenteException.class)
-    public ResponseEntity<GenericResponse> handleCompraPendienteExistente(CompraPendienteExistenteException ex) {
-        log.warn("Compra rechazada por operacion pendiente previa: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.CONFLICT, ex.getMessage());
-    }
-
-    /**
-     * 202 Accepted y no un error: la solicitud llego a GestoPago pero no se
-     * pudo confirmar su resultado. No es correcto decirle al cliente que
-     * fallo (pudo haberse cobrado) ni que fue exitosa.
-     */
-    @ExceptionHandler(TransaccionGestoPagoIndeterminadaException.class)
-    public ResponseEntity<GenericResponse> handleTransaccionIndeterminada(TransaccionGestoPagoIndeterminadaException ex) {
-        log.error("Transaccion GestoPago con resultado indeterminado, pendiente de conciliacion");
-        return construirRespuesta(HttpStatus.ACCEPTED, ex.getMessage());
-    }
-
-    @ExceptionHandler(GestoPagoTokenNoDisponibleException.class)
-    public ResponseEntity<GenericResponse> handleTokenGestoPagoNoDisponible(GestoPagoTokenNoDisponibleException ex) {
-        log.error("No hay token GestoPago vigente para operar: {}", ex.getMessage());
-        return construirRespuesta(HttpStatus.SERVICE_UNAVAILABLE,
-                "El servicio de pagos no esta disponible en este momento, intenta de nuevo mas tarde");
     }
 
     /**

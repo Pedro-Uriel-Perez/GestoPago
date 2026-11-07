@@ -1,14 +1,11 @@
 package com.proyecto.servicios.service.Impl;
 
+import org.springframework.http.HttpStatus;
+import com.proyecto.servicios.exception.NegocioException;
 import com.proyecto.servicios.entity.clientes.Cliente;
 import com.proyecto.servicios.entity.clientes.Cuenta;
 import com.proyecto.servicios.entity.clientes.Domicilio;
 import com.proyecto.servicios.entity.clientes.Saldo;
-import com.proyecto.servicios.exception.ClienteNoEncontradoException;
-import com.proyecto.servicios.exception.ClienteYaRegistradoException;
-import com.proyecto.servicios.exception.CuentaNoEncontradaException;
-import com.proyecto.servicios.exception.CurpDuplicadaException;
-import com.proyecto.servicios.exception.RfcDuplicadoException;
 import com.proyecto.servicios.mapper.ClienteMapper;
 import com.proyecto.servicios.model.clientes.ClienteActualizaRequest;
 import com.proyecto.servicios.model.clientes.ClienteBusquedaRequest;
@@ -116,28 +113,28 @@ public class ClienteServiceImpl implements ClienteService {
     @Override
     public ClienteResponse obtenerPorCurp(String curp) {
         Cliente cliente = clienteRepository.findByCurp(curp)
-                .orElseThrow(() -> new ClienteNoEncontradoException("No existe un cliente con la CURP " + curp));
+                .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND, "No existe un cliente con la CURP " + curp));
         return ensamblarRespuestaCompleta(cliente);
     }
 
     @Override
     public ClienteResponse obtenerPorRfc(String rfc) {
         Cliente cliente = clienteRepository.findByRfc(rfc)
-                .orElseThrow(() -> new ClienteNoEncontradoException("No existe un cliente con el RFC " + rfc));
+                .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND, "No existe un cliente con el RFC " + rfc));
         return ensamblarRespuestaCompleta(cliente);
     }
 
     @Override
     public ClienteResponse obtenerPorCorreo(String correo) {
         Cliente cliente = clienteRepository.findByCorreoElectronico(correo)
-                .orElseThrow(() -> new ClienteNoEncontradoException("No existe un cliente con el correo " + correo));
+                .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND, "No existe un cliente con el correo " + correo));
         return ensamblarRespuestaCompleta(cliente);
     }
 
     @Override
     public ClienteResponse obtenerPorNumeroCuenta(String numeroCuenta) {
         Cuenta cuenta = cuentaRepository.findByNumeroCuenta(numeroCuenta)
-                .orElseThrow(() -> new CuentaNoEncontradaException(
+                .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND,
                         "No existe una cuenta con el numero " + numeroCuenta));
         return ensamblarRespuestaCompleta(cuenta.getCliente());
     }
@@ -150,7 +147,7 @@ public class ClienteServiceImpl implements ClienteService {
         clienteRepository.findByCorreoElectronico(request.getCorreoElectronico())
                 .filter(otro -> !otro.getId().equals(id))
                 .ifPresent(otro -> {
-                    throw new ClienteYaRegistradoException(
+                    throw new NegocioException(HttpStatus.CONFLICT,
                             "Ya existe un cliente registrado con el correo " + request.getCorreoElectronico());
                 });
 
@@ -159,7 +156,7 @@ public class ClienteServiceImpl implements ClienteService {
         clienteRepository.save(cliente);
 
         Domicilio domicilio = domicilioRepository.findByClienteId(id)
-                .orElseThrow(() -> new ClienteNoEncontradoException(
+                .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND,
                         "El cliente con id " + id + " no tiene un domicilio registrado"));
         clienteMapper.actualizarEntity(request.getDomicilio(), domicilio);
         domicilioRepository.save(domicilio);
@@ -200,22 +197,22 @@ public class ClienteServiceImpl implements ClienteService {
     private void validarUnicidad(String curp, String rfc, String correo) {
         clienteRepository.findByCurp(curp)
                 .ifPresent(existente -> {
-                    throw new CurpDuplicadaException(curp);
+                    throw new NegocioException(HttpStatus.CONFLICT, "Ya existe un cliente registrado con la CURP " + curp);
                 });
         clienteRepository.findByRfc(rfc)
                 .ifPresent(existente -> {
-                    throw new RfcDuplicadoException(rfc);
+                    throw new NegocioException(HttpStatus.CONFLICT, "Ya existe un cliente registrado con el RFC " + rfc);
                 });
         clienteRepository.findByCorreoElectronico(correo)
                 .ifPresent(existente -> {
-                    throw new ClienteYaRegistradoException(
+                    throw new NegocioException(HttpStatus.CONFLICT,
                             "Ya existe un cliente registrado con el correo " + correo);
                 });
     }
 
     private Cliente buscarPorId(Integer id) {
         return clienteRepository.findById(id)
-                .orElseThrow(() -> new ClienteNoEncontradoException("No existe un cliente con id " + id));
+                .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND, "No existe un cliente con id " + id));
     }
 
     private ClienteResponse ensamblarRespuestaCompleta(Cliente cliente) {

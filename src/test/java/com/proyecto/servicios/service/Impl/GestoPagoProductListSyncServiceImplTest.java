@@ -1,8 +1,9 @@
 package com.proyecto.servicios.service.Impl;
 
+import org.springframework.http.HttpStatus;
+import com.proyecto.servicios.exception.NegocioException;
 import com.proyecto.servicios.client.GestoPagoProductListClient;
 import com.proyecto.servicios.entity.gestopago.GestoPagoProducto;
-import com.proyecto.servicios.exception.GestoPagoTokenNoDisponibleException;
 import com.proyecto.servicios.mapper.ProductoMapper;
 import com.proyecto.servicios.model.productlist.MensajeExternoDTO;
 import com.proyecto.servicios.model.productlist.ProductListApiResponse;
@@ -80,7 +81,7 @@ class GestoPagoProductListSyncServiceImplTest {
     @Test
     void sincronizarProductos_sinTokenGestoPagoDisponible_noTocaElCatalogoEnPostgres() {
         when(productListClient.getProductList())
-                .thenThrow(new GestoPagoTokenNoDisponibleException("No hay un token GestoPago activo"));
+                .thenThrow(new NegocioException(HttpStatus.SERVICE_UNAVAILABLE, "No hay un token GestoPago activo"));
 
         syncService.sincronizarProductos();
 

@@ -114,9 +114,11 @@ afecta a otras cuentas en paralelo.
 
 `@Transactional` se usa aquí a pesar de la regla general del proyecto de
 evitarlo: es la única forma de sostener el bloqueo pesimista. Usa
-`noRollbackFor = TransaccionGestoPagoIndeterminadaException` para que el
-registro de conciliación sobreviva (en ese camino no hay ninguna otra
-escritura).
+`noRollbackFor = NegocioException` para que el registro de conciliación
+sobreviva. Es seguro porque en ese método ninguna `NegocioException` se
+lanza después de otra escritura: el descuento de saldo es lo último que
+ocurre y solo en el camino exitoso. Los errores inesperados (de base de
+datos, etc.) siguen haciendo rollback.
 
 ## 5. Concurrencia y prevención de cargos duplicados
 
@@ -170,7 +172,8 @@ durante 24 h después del `sendTx`.
 - **DTOs** separados para la entrada (`CompraRequest`), la operación
   pendiente (`CompraPendiente`), el payload hacia GestoPago
   (`GestoPagoSenTxRequest`) y la respuesta (`CompraResultadoResponse`).
-- **Excepciones de dominio** específicas, cada una con su status HTTP en
+- **Una sola excepción de negocio** (`NegocioException`) que lleva el
+  status HTTP de cada caso, atendida por un único manejador en
   `GlobalExceptionHandler`.
 
 ## 8. Pruebas

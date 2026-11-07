@@ -1,7 +1,8 @@
 package com.proyecto.servicios.service.Impl;
 
+import org.springframework.http.HttpStatus;
+import com.proyecto.servicios.exception.NegocioException;
 import com.proyecto.servicios.entity.clientes.Nacionalidad;
-import com.proyecto.servicios.exception.NacionalidadNoEncontradaException;
 import com.proyecto.servicios.model.clientes.NacionalidadResponse;
 import com.proyecto.servicios.repositorys.clientes.NacionalidadRepository;
 import org.junit.jupiter.api.Test;
@@ -58,10 +59,11 @@ class NacionalidadServiceImplTest {
     }
 
     @Test
-    void buscarPorId_idNoExiste_lanzaNacionalidadNoEncontradaException() {
+    void buscarPorId_idNoExiste_lanzaError404() {
         when(nacionalidadRepository.findById(99)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> nacionalidadService.buscarPorId(99))
-                .isInstanceOf(NacionalidadNoEncontradaException.class);
+                .isInstanceOf(NegocioException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
     }
 }
