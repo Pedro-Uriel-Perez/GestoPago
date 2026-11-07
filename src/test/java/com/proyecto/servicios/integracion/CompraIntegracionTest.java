@@ -50,7 +50,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -280,6 +282,25 @@ class CompraIntegracionTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(cuerpoCompra("1234567890", "100")))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void preflightCors_desdeOrigenPermitido_respondeSinPedirToken() throws Exception {
+        mockMvc.perform(options("/compras")
+                        .header("Origin", "http://localhost:5000")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Access-Control-Request-Headers", "authorization,content-type"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5000"));
+    }
+
+    @Test
+    void preflightCors_desdeOrigenNoPermitido_seRechaza() throws Exception {
+        mockMvc.perform(options("/compras")
+                        .header("Origin", "https://sitio-ajeno.com")
+                        .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
 
     @Test
