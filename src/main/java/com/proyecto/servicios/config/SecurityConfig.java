@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -47,6 +48,9 @@ public class SecurityConfig {
                 // Authorization, que el navegador nunca adjunta por su cuenta,
                 // asi que no hay token que un sitio ajeno pueda reutilizar.
                 .csrf(csrf -> csrf.disable()) // NOSONAR
+                // Usa la configuracion de CorsConfig; asi el preflight
+                // (OPTIONS) del navegador se responde antes de pedir el JWT.
+                .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(RUTAS_PUBLICAS).permitAll()
@@ -54,15 +58,14 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/login").permitAll()
                         .requestMatchers("/clientes/**", "/cuentas/**", "/login/**", "/compras/**").authenticated()
                         .anyRequest().permitAll())
-                .exceptionHandling(eh -> eh.authenticationEntryPoint(this::responderNoAutenticado))
+                .exceptionHandling(eh -> eh.authenticationEntryPoint(
+                        (request, response, ex) -> responderNoAutenticado(response)))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    private void responderNoAutenticado(jakarta.servlet.http.HttpServletRequest request,
-                                         jakarta.servlet.http.HttpServletResponse response,
-                                         org.springframework.security.core.AuthenticationException ex) throws java.io.IOException {
+    private void responderNoAutenticado(jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
         response.setStatus(401);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         objectMapper.writeValue(response.getWriter(),
