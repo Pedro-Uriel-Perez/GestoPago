@@ -1,5 +1,6 @@
 package com.proyecto.servicios.entity.gestopago;
 
+import com.proyecto.servicios.config.ZonaHoraria;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -59,6 +60,6 @@ public class GestoPagoProducto {
     @PrePersist
     @PreUpdate
     void onSave() {
-        fechaActualizacion = LocalDateTime.now();
+        fechaActualizacion = LocalDateTime.now(ZonaHoraria.MEXICO);
     }
 }

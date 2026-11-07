@@ -5,18 +5,18 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
-import java.util.Date;
+import java.time.Instant;
 
 /**
  * Genera y valida el JWT (momentaneo) que se le entrega al cliente al
  * iniciar sesion. Es un componente normal de Spring (no un AttributeConverter
  * de JPA), asi que si puede recibir @Value directamente.
  */
-@Component
+@Service
 public class JwtService {
 
     @Value("${security.jwt.secret-key}")
@@ -26,14 +26,17 @@ public class JwtService {
     private long expiracionMs;
 
     public String generarToken(Integer clienteId, String correoElectronico) {
-        Date ahora = new Date();
-        Date expiracion = new Date(ahora.getTime() + expiracionMs);
+        Instant ahora = Instant.now();
+        Instant expiracion = ahora.plusMillis(expiracionMs);
 
+        // iat/exp se escriben directo como "NumericDate" (segundos desde
+        // epoch), que es como los define el estandar JWT (RFC 7519); asi no
+        // hace falta java.util.Date y el parser de jjwt los valida igual.
         return Jwts.builder()
                 .setSubject(String.valueOf(clienteId))
                 .claim("correo", correoElectronico)
-                .setIssuedAt(ahora)
-                .setExpiration(expiracion)
+                .claim(Claims.ISSUED_AT, ahora.getEpochSecond())
+                .claim(Claims.EXPIRATION, expiracion.getEpochSecond())
                 .signWith(obtenerLlaveFirma(), SignatureAlgorithm.HS256)
                 .compact();
     }

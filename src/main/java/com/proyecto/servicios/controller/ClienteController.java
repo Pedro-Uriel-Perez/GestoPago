@@ -6,7 +6,6 @@ import com.proyecto.servicios.model.clientes.ClienteRequest;
 import com.proyecto.servicios.model.clientes.ClienteResponse;
 import com.proyecto.servicios.service.ClienteService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,8 +17,11 @@ import java.util.List;
 @RequestMapping(value = "/clientes", produces = MediaType.APPLICATION_JSON_VALUE)
 public class ClienteController {
 
-    @Autowired
-    private ClienteService clienteService;
+    private final ClienteService clienteService;
+
+    public ClienteController(ClienteService clienteService) {
+        this.clienteService = clienteService;
+    }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ClienteResponse> crear(@Valid @RequestBody ClienteRequest request) {

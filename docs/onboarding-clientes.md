@@ -134,9 +134,12 @@ conocer los ids válidos antes de poder registrar un cliente.
 
 ### `saldos` como historial (1:N), no una columna en `cuentas`
 Cada movimiento de saldo (apertura, depósito, retiro, ajuste) es una fila
-nueva con fecha. El saldo vigente de una cuenta es su registro más reciente
-(`findFirstByCuentaIdOrderByFechaMovimientoDesc`), no una columna
+nueva con fecha. El saldo vigente de una cuenta es el último registro
+insertado (`findFirstByCuentaIdOrderByIdDesc`), no una columna
 desnormalizada — evita inconsistencias entre "el saldo" y "el historial".
+Se ordena por id (orden real de inserción) y no por `fecha_movimiento`
+para que el resultado no dependa del reloj ni de la zona horaria del
+servidor.
 
 ### Datos biométricos: `double[]` en Java, `TEXT` cifrado en la base de datos
 Los sistemas reales de reconocimiento facial (ej. **MediaPipe

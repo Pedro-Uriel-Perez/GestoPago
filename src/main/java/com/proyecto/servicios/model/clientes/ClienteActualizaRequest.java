@@ -38,7 +38,7 @@ public class ClienteActualizaRequest {
     private String apellidoMaterno;
 
     @NotBlank(message = "El sexo es obligatorio")
-    @Pattern(regexp = "^(M|F)$", message = "El sexo debe ser 'M' o 'F'")
+    @Pattern(regexp = "^[MF]$", message = "El sexo debe ser 'M' o 'F'")
     private String sexo;
 
     @NotNull(message = "La nacionalidad es obligatoria")

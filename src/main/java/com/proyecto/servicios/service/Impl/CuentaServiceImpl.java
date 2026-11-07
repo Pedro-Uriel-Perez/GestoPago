@@ -49,14 +49,14 @@ public class CuentaServiceImpl implements CuentaService {
     @Override
     public List<SaldoResponse> obtenerHistorialSaldo(String numeroCuenta) {
         Cuenta cuenta = buscarPorNumeroCuenta(numeroCuenta);
-        List<Saldo> historial = saldoRepository.findByCuentaIdOrderByFechaMovimientoDesc(cuenta.getId());
+        List<Saldo> historial = saldoRepository.findByCuentaIdOrderByIdDesc(cuenta.getId());
         return clienteMapper.toSaldoResponseList(historial);
     }
 
     @Override
     public CuentaResponse construirRespuesta(Cuenta cuenta) {
         CuentaResponse response = clienteMapper.toResponse(cuenta);
-        BigDecimal saldoActual = saldoRepository.findFirstByCuentaIdOrderByFechaMovimientoDesc(cuenta.getId())
+        BigDecimal saldoActual = saldoRepository.findFirstByCuentaIdOrderByIdDesc(cuenta.getId())
                 .map(Saldo::getMonto)
                 .orElse(BigDecimal.ZERO);
         response.setSaldoActual(saldoActual);

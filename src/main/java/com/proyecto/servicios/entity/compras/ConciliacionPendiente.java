@@ -1,5 +1,6 @@
 package com.proyecto.servicios.entity.compras;
 
+import com.proyecto.servicios.config.ZonaHoraria;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -49,6 +50,6 @@ public class ConciliacionPendiente {
 
     @PrePersist
     void alCrear() {
-        fechaCreacion = LocalDateTime.now();
+        fechaCreacion = LocalDateTime.now(ZonaHoraria.MEXICO);
     }
 }

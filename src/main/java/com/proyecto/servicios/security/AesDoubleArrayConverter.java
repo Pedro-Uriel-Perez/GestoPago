@@ -26,10 +26,16 @@ public class AesDoubleArrayConverter implements AttributeConverter<double[], Str
         return AesEncryptionUtil.cifrar(buffer.array());
     }
 
+    /**
+     * Revisado (Sonar java:S1168): un AttributeConverter de JPA debe
+     * regresar null cuando la columna es NULL. Un arreglo vacio significaria
+     * "hay datos biometricos, pero vacios", y al volver a guardar la entidad
+     * se escribiria un valor cifrado donde antes no habia nada.
+     */
     @Override
     public double[] convertToEntityAttribute(String dato) {
         if (dato == null) {
-            return null;
+            return null; // NOSONAR java:S1168, ver javadoc del metodo
         }
         ByteBuffer buffer = ByteBuffer.wrap(AesEncryptionUtil.descifrar(dato));
         double[] valores = new double[buffer.remaining() / Double.BYTES];

@@ -1,5 +1,6 @@
 package com.proyecto.servicios.entity.clientes;
 
+import com.proyecto.servicios.config.ZonaHoraria;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -9,8 +10,9 @@ import java.time.LocalDateTime;
 
 /**
  * Historial de movimientos de saldo de una cuenta (1:N). El saldo vigente
- * de una cuenta es el registro mas reciente por fecha_movimiento, no una
- * columna en Cuenta.
+ * de una cuenta es el ultimo registro insertado (mayor id), no una columna
+ * en Cuenta. Se ordena por id y no por fecha_movimiento para que el orden
+ * no dependa del reloj ni de la zona horaria del servidor.
  */
 @Entity
 @Table(name = "saldos")
@@ -40,6 +42,6 @@ public class Saldo {
 
     @PrePersist
     void alCrear() {
-        fechaMovimiento = LocalDateTime.now();
+        fechaMovimiento = LocalDateTime.now(ZonaHoraria.MEXICO);
     }
 }

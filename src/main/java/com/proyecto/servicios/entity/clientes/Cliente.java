@@ -1,5 +1,6 @@
 package com.proyecto.servicios.entity.clientes;
 
+import com.proyecto.servicios.config.ZonaHoraria;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -84,12 +85,12 @@ public class Cliente {
 
     @PrePersist
     void alCrear() {
-        fechaRegistro = LocalDateTime.now();
-        fechaActualizacion = LocalDateTime.now();
+        fechaRegistro = LocalDateTime.now(ZonaHoraria.MEXICO);
+        fechaActualizacion = LocalDateTime.now(ZonaHoraria.MEXICO);
     }
 
     @PreUpdate
     void alActualizar() {
-        fechaActualizacion = LocalDateTime.now();
+        fechaActualizacion = LocalDateTime.now(ZonaHoraria.MEXICO);
     }
 }

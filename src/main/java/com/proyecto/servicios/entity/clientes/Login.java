@@ -1,5 +1,6 @@
 package com.proyecto.servicios.entity.clientes;
 
+import com.proyecto.servicios.config.ZonaHoraria;
 import com.proyecto.servicios.security.AesDoubleArrayConverter;
 import com.proyecto.servicios.security.AesStringConverter;
 import jakarta.persistence.*;
@@ -61,6 +62,6 @@ public class Login {
 
     @PrePersist
     void alCrear() {
-        fechaCreacion = LocalDateTime.now();
+        fechaCreacion = LocalDateTime.now(ZonaHoraria.MEXICO);
     }
 }

@@ -375,7 +375,7 @@ public class CompraServiceImpl implements CompraService {
     }
 
     private BigDecimal saldoVigente(Integer cuentaId) {
-        return saldoRepository.findFirstByCuentaIdOrderByFechaMovimientoDesc(cuentaId)
+        return saldoRepository.findFirstByCuentaIdOrderByIdDesc(cuentaId)
                 .map(Saldo::getMonto)
                 .orElse(BigDecimal.ZERO);
     }

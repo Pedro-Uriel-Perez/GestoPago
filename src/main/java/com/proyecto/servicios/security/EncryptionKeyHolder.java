@@ -15,9 +15,16 @@ public class EncryptionKeyHolder {
 
     private static volatile String claveSecreta;
 
+    /**
+     * Revisado (Sonar java:S2696): escribir un campo estatico desde un
+     * metodo de instancia es justo el proposito de esta clase. Spring solo
+     * inyecta @Value en metodos de instancia, y los AttributeConverter que
+     * necesitan la clave los crea Hibernate, sin acceso al contexto de
+     * Spring. Se llama una sola vez, al arrancar.
+     */
     @Value("${security.aes.secret-key}")
     public void inicializar(String clave) {
-        EncryptionKeyHolder.claveSecreta = clave;
+        EncryptionKeyHolder.claveSecreta = clave; // NOSONAR java:S2696, ver javadoc del metodo
     }
 
     public static String getClaveSecreta() {

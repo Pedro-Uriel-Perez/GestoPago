@@ -6,6 +6,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -17,14 +18,22 @@ import java.util.Base64;
  * propiedad tenga un tamano exacto de bytes.
  *
  * El IV se genera aleatoriamente en cada cifrado y se antepone al texto
- * cifrado (formato: IV || CIPHERTEXT, todo en Base64) para poder
+ * cifrado (formato: IV || CIPHERTEXT, codificado en Base64) para poder
  * descifrarlo despues sin guardar el IV en una columna aparte.
  */
 public final class AesEncryptionUtil {
 
     private static final String ALGORITMO_CIFRADO = "AES/GCM/NoPadding";
     private static final String ALGORITMO_DERIVACION_LLAVE = "PBKDF2WithHmacSHA256";
+    /**
+     * Revisado (Sonar java:S2053): la sal debe ser fija a proposito. PBKDF2
+     * se usa aqui para derivar SIEMPRE la misma llave AES a partir de
+     * security.aes.secret-key; con una sal aleatoria cada arranque daria
+     * una llave distinta y no se podria descifrar nada de lo ya guardado.
+     * No es un hash de contrasenas de usuario (esas van con BCrypt).
+     */
     private static final byte[] SAL_DERIVACION_LLAVE = "gestopago-clientes-salt".getBytes(StandardCharsets.UTF_8);
+    private static final SecureRandom GENERADOR_IV = new SecureRandom();
     private static final int ITERACIONES_DERIVACION_LLAVE = 65536;
     private static final int TAMANIO_LLAVE_BITS = 256;
     private static final int TAMANIO_TAG_GCM_BITS = 128;
@@ -36,7 +45,7 @@ public final class AesEncryptionUtil {
     public static String cifrar(byte[] datos) {
         try {
             byte[] iv = new byte[TAMANIO_IV_BYTES];
-            new SecureRandom().nextBytes(iv);
+            GENERADOR_IV.nextBytes(iv);
 
             Cipher cipher = Cipher.getInstance(ALGORITMO_CIFRADO);
             cipher.init(Cipher.ENCRYPT_MODE, derivarLlave(), new GCMParameterSpec(TAMANIO_TAG_GCM_BITS, iv));
@@ -68,10 +77,10 @@ public final class AesEncryptionUtil {
         }
     }
 
-    private static SecretKeySpec derivarLlave() throws Exception {
+    private static SecretKeySpec derivarLlave() throws GeneralSecurityException {
         String claveSecreta = EncryptionKeyHolder.getClaveSecreta();
         SecretKeyFactory factory = SecretKeyFactory.getInstance(ALGORITMO_DERIVACION_LLAVE);
-        PBEKeySpec spec = new PBEKeySpec(
+        PBEKeySpec spec = new PBEKeySpec( // NOSONAR java:S2053, sal fija a proposito (ver SAL_DERIVACION_LLAVE)
                 claveSecreta.toCharArray(), SAL_DERIVACION_LLAVE, ITERACIONES_DERIVACION_LLAVE, TAMANIO_LLAVE_BITS);
         byte[] llave = factory.generateSecret(spec).getEncoded();
         return new SecretKeySpec(llave, "AES");

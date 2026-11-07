@@ -1,5 +1,6 @@
 package com.proyecto.servicios.entity.gestopago;
 
+import com.proyecto.servicios.config.ZonaHoraria;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -42,12 +43,12 @@ public class GestoPagoToken {
 
     @PrePersist
     void onCreate() {
-        fechaCreacion = LocalDateTime.now();
-        fechaActualizacion = LocalDateTime.now();
+        fechaCreacion = LocalDateTime.now(ZonaHoraria.MEXICO);
+        fechaActualizacion = LocalDateTime.now(ZonaHoraria.MEXICO);
     }
 
     @PreUpdate
     void onUpdate() {
-        fechaActualizacion = LocalDateTime.now();
+        fechaActualizacion = LocalDateTime.now(ZonaHoraria.MEXICO);
     }
 }

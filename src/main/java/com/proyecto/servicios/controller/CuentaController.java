@@ -3,7 +3,6 @@ package com.proyecto.servicios.controller;
 import com.proyecto.servicios.model.clientes.CuentaResponse;
 import com.proyecto.servicios.model.clientes.SaldoResponse;
 import com.proyecto.servicios.service.CuentaService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,8 +16,11 @@ import java.util.List;
 @RequestMapping(value = "/cuentas", produces = MediaType.APPLICATION_JSON_VALUE)
 public class CuentaController {
 
-    @Autowired
-    private CuentaService cuentaService;
+    private final CuentaService cuentaService;
+
+    public CuentaController(CuentaService cuentaService) {
+        this.cuentaService = cuentaService;
+    }
 
     @GetMapping("/{numeroCuenta}")
     public ResponseEntity<CuentaResponse> obtenerPorNumeroCuenta(@PathVariable String numeroCuenta) {

@@ -1,5 +1,6 @@
 package com.proyecto.servicios.validation;
 
+import com.proyecto.servicios.config.ZonaHoraria;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 
@@ -19,7 +20,7 @@ public class EdadMinimaValidator implements ConstraintValidator<EdadMinima, Loca
     @Override
     public boolean isValid(LocalDate fechaNacimiento, ConstraintValidatorContext context) {
         return Optional.ofNullable(fechaNacimiento)
-                .map(fecha -> Period.between(fecha, LocalDate.now()).getYears() >= edadMinima)
+                .map(fecha -> Period.between(fecha, LocalDate.now(ZonaHoraria.MEXICO)).getYears() >= edadMinima)
                 .orElse(true);
     }
 }

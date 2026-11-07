@@ -10,7 +10,7 @@ import java.util.Optional;
 @Repository
 public interface SaldoRepository extends JpaRepository<Saldo, Integer> {
 
-    Optional<Saldo> findFirstByCuentaIdOrderByFechaMovimientoDesc(Integer cuentaId);
+    Optional<Saldo> findFirstByCuentaIdOrderByIdDesc(Integer cuentaId);
 
-    List<Saldo> findByCuentaIdOrderByFechaMovimientoDesc(Integer cuentaId);
+    List<Saldo> findByCuentaIdOrderByIdDesc(Integer cuentaId);
 }
