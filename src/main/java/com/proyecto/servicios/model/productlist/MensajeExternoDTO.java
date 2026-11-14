@@ -19,6 +19,10 @@ public class MensajeExternoDTO {
     @XmlElement(name = "TEXTO")
     private String texto;
 
+    /** Solo lo trae verifyReference.do: adeudo asociado a la referencia. */
+    @XmlElement(name = "SALDO")
+    private String saldo;
+
     public boolean esExitoso() {
         return "01".equals(codigo);
     }

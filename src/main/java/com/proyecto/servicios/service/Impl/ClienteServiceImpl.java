@@ -170,7 +170,7 @@ public class ClienteServiceImpl implements ClienteService {
         Cliente cliente = buscarPorId(id);
         cliente.setActivo(false);
         clienteRepository.save(cliente);
-        loginService.cerrarSesion(id);
+        loginService.cerrarTodasLasSesiones(id);
         log.info("Cliente desactivado (baja logica) y sesion cerrada. id={}", id);
     }
 

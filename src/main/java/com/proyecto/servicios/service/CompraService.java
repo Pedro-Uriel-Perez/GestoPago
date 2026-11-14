@@ -4,6 +4,11 @@ import com.proyecto.servicios.model.compras.CompraConfirmarRequest;
 import com.proyecto.servicios.model.compras.CompraIniciadaResponse;
 import com.proyecto.servicios.model.compras.CompraRequest;
 import com.proyecto.servicios.model.compras.CompraResultadoResponse;
+import com.proyecto.servicios.model.compras.PagoResponse;
+import com.proyecto.servicios.model.compras.ReferenciaVerificadaResponse;
+import com.proyecto.servicios.model.compras.VerificarReferenciaRequest;
+
+import java.util.List;
 
 public interface CompraService {
 
@@ -23,4 +28,17 @@ public interface CompraService {
      * confirma exito.
      */
     CompraResultadoResponse confirmarCompra(CompraConfirmarRequest request, Integer clienteIdAutenticado);
+
+    /**
+     * Valida con GestoPago (verifyReference.do) la referencia de un pago de
+     * servicio antes de pagarlo. Si GestoPago no ofrece consulta en linea
+     * para ese servicio regresa NO_VERIFICABLE.
+     */
+    ReferenciaVerificadaResponse verificarReferencia(VerificarReferenciaRequest request);
+
+    /** Historial de pagos del cliente autenticado, del mas reciente al mas antiguo. */
+    List<PagoResponse> obtenerHistorial(Integer clienteIdAutenticado);
+
+    /** Detalle de un pago; 404 si no existe o no es del cliente autenticado. */
+    PagoResponse obtenerPago(Integer pagoId, Integer clienteIdAutenticado);
 }

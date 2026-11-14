@@ -2,6 +2,7 @@ package com.proyecto.servicios.service;
 
 import com.proyecto.servicios.entity.clientes.Cuenta;
 import com.proyecto.servicios.model.clientes.CuentaResponse;
+import com.proyecto.servicios.model.clientes.DepositoRequest;
 import com.proyecto.servicios.model.clientes.SaldoResponse;
 
 import java.util.List;
@@ -21,4 +22,10 @@ public interface CuentaService {
      * la logica de "buscar el saldo mas reciente".
      */
     CuentaResponse construirRespuesta(Cuenta cuenta);
+
+    /**
+     * Abona saldo a la cuenta del cliente autenticado (movimiento DEPOSITO)
+     * y regresa la cuenta con su saldo actualizado.
+     */
+    CuentaResponse depositar(DepositoRequest request, Integer clienteIdAutenticado);
 }

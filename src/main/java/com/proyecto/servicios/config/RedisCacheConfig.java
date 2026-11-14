@@ -50,6 +50,6 @@ public class RedisCacheConfig {
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
                         new GenericJackson2JsonRedisSerializer(redisObjectMapper)));
 
-        return builder -> builder.withCacheConfiguration("productos", configuracion);
+        return builder -> builder.withCacheConfiguration("catalogo", configuracion);
     }
 }

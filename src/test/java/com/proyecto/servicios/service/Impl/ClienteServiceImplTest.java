@@ -182,7 +182,7 @@ class ClienteServiceImplTest {
         verify(clienteRepository).save(cliente);
         verify(clienteRepository, never()).delete(any(Cliente.class));
         verify(clienteRepository, never()).deleteById(any());
-        verify(loginService).cerrarSesion(5);
+        verify(loginService).cerrarTodasLasSesiones(5);
     }
 
     @Test

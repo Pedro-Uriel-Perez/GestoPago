@@ -1,6 +1,7 @@
 package com.proyecto.servicios.controller;
 
 import com.proyecto.servicios.model.clientes.CuentaResponse;
+import com.proyecto.servicios.model.clientes.DepositoRequest;
 import com.proyecto.servicios.model.clientes.SaldoResponse;
 import com.proyecto.servicios.service.CuentaService;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -66,5 +68,19 @@ class CuentaControllerTest {
         assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(respuesta.getBody()).singleElement()
                 .satisfies(s -> assertThat(s.getTipoMovimiento()).isEqualTo("DEPOSITO"));
+    }
+
+    @Test
+    void depositar_regresa200ConLaCuentaYUsaElClienteDelToken() {
+        DepositoRequest request = new DepositoRequest();
+        request.setNumeroCuenta(NUMERO_CUENTA);
+        request.setMonto(new BigDecimal("500.00"));
+        when(cuentaService.depositar(request, 7)).thenReturn(cuenta());
+
+        ResponseEntity<CuentaResponse> respuesta = cuentaController.depositar(request,
+                new UsernamePasswordAuthenticationToken(7, null, List.of()));
+
+        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(respuesta.getBody().getNumeroCuenta()).isEqualTo(NUMERO_CUENTA);
     }
 }

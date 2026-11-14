@@ -29,7 +29,7 @@ class JwtServiceTest {
     void generarToken_tokenVigente_regresaElClienteId() {
         JwtService servicio = servicioConVigencia(60_000, CLAVE);
 
-        String token = servicio.generarToken(25, "cliente@correo.com");
+        String token = servicio.generarToken(25, "cliente@correo.com", "sid-1");
 
         assertThat(servicio.obtenerClienteId(token)).isEqualTo(25);
     }
@@ -38,7 +38,7 @@ class JwtServiceTest {
     void generarToken_incluyeFechaDeEmisionYExpiracionValidas() {
         JwtService servicio = servicioConVigencia(60_000, CLAVE);
 
-        String token = servicio.generarToken(25, "cliente@correo.com");
+        String token = servicio.generarToken(25, "cliente@correo.com", "sid-1");
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(Keys.hmacShaKeyFor(CLAVE.getBytes(StandardCharsets.UTF_8)))
                 .build()
@@ -54,7 +54,7 @@ class JwtServiceTest {
     void obtenerClienteId_tokenVencido_seRechaza() {
         JwtService servicio = servicioConVigencia(-60_000, CLAVE);
 
-        String token = servicio.generarToken(25, "cliente@correo.com");
+        String token = servicio.generarToken(25, "cliente@correo.com", "sid-1");
 
         assertThatThrownBy(() -> servicio.obtenerClienteId(token)).isInstanceOf(ExpiredJwtException.class);
     }
@@ -62,9 +62,18 @@ class JwtServiceTest {
     @Test
     void obtenerClienteId_tokenFirmadoConOtraClave_seRechaza() {
         String token = servicioConVigencia(60_000, "otra-clave-distinta-tambien-larga-para-hs256-9876543210")
-                .generarToken(25, "cliente@correo.com");
+                .generarToken(25, "cliente@correo.com", "sid-1");
         JwtService servicio = servicioConVigencia(60_000, CLAVE);
 
         assertThatThrownBy(() -> servicio.obtenerClienteId(token)).isInstanceOf(SignatureException.class);
+    }
+
+    @Test
+    void obtenerSesionId_regresaElIdentificadorDeSesionConElQueSeEmitio() {
+        JwtService servicio = servicioConVigencia(60_000, CLAVE);
+
+        String token = servicio.generarToken(25, "cliente@correo.com", "sid-movil");
+
+        assertThat(servicio.obtenerSesionId(token)).isEqualTo("sid-movil");
     }
 }

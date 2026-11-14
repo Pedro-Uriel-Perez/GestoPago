@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.atLeastOnce;
@@ -50,6 +51,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -480,5 +482,193 @@ class CompraIntegracionTest {
         assertThat(leer(resultado).path("mensaje").asText()).contains("aplicada anteriormente");
         assertThat(saldoActual(cliente.cuentaId())).isEqualByComparingTo("500.00");
         verify(senTxClient, never()).confirmTx(any());
+    }
+
+    // ---------- historial, sesiones por dispositivo, deposito y referencias ----------
+
+    private String iniciarSesion(String correo, String dispositivo) throws Exception {
+        MvcResult login = mockMvc.perform(post("/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"correoElectronico\":\"" + correo + "\",\"password\":\"contrasena123\","
+                                + "\"dispositivo\":\"" + dispositivo + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        return leer(login).path("jwt").asText();
+    }
+
+    private String correoDelUltimoCliente() {
+        return "integracion" + SECUENCIA.get() + "@correo.com";
+    }
+
+    @Test
+    void historial_despuesDeUnPagoExitoso_loMuestraConFolioYSoloAlDueno() throws Exception {
+        ClienteDePrueba cliente = registrarClienteConSaldo("500.00");
+        when(senTxClient.sendTx(any())).thenReturn(respuestaGestoPago("01", "Operacion realizada con exito"));
+        String operacionId = iniciarCompraYObtenerOperacion(cliente);
+        MvcResult pago = confirmar(cliente, operacionId, ultimoPinEnviado());
+        int pagoId = leer(pago).path("pagoId").asInt();
+
+        mockMvc.perform(get("/compras").header("Authorization", "Bearer " + cliente.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(pagoId))
+                .andExpect(jsonPath("$[0].estado").value("EXITOSO"))
+                .andExpect(jsonPath("$[0].nombreServicio").value("ABIB"))
+                .andExpect(jsonPath("$[0].idTransaccion").value("946033922"))
+                .andExpect(jsonPath("$[0].telefono").value("5555555551"))
+                .andExpect(jsonPath("$[0].monto").value(100))
+                .andExpect(jsonPath("$[0].logoUrl").value(org.hamcrest.Matchers.endsWith("/servicios/2284.png")));
+
+        mockMvc.perform(get("/compras/" + pagoId).header("Authorization", "Bearer " + cliente.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operacionId").value(operacionId));
+
+        ClienteDePrueba otro = registrarClienteConSaldo("10.00");
+        mockMvc.perform(get("/compras/" + pagoId).header("Authorization", "Bearer " + otro.token()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/compras").header("Authorization", "Bearer " + otro.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void historial_pagoRechazadoYPagoSinConfirmar_quedanConSuEstado() throws Exception {
+        ClienteDePrueba cliente = registrarClienteConSaldo("500.00");
+        when(senTxClient.sendTx(any())).thenReturn(respuestaGestoPago("02", "Saldo insuficiente"));
+        confirmar(cliente, iniciarCompraYObtenerOperacion(cliente), ultimoPinEnviado());
+
+        when(senTxClient.sendTx(any())).thenThrow(RetryableException.class);
+        when(senTxClient.confirmTx(any())).thenThrow(RetryableException.class);
+        ClienteDePrueba otro = registrarClienteConSaldo("500.00");
+        confirmar(otro, iniciarCompraYObtenerOperacion(otro), ultimoPinEnviado());
+
+        mockMvc.perform(get("/compras").header("Authorization", "Bearer " + cliente.token()))
+                .andExpect(jsonPath("$[0].estado").value("RECHAZADO"))
+                .andExpect(jsonPath("$[0].mensaje").value("Saldo insuficiente"));
+        mockMvc.perform(get("/compras").header("Authorization", "Bearer " + otro.token()))
+                .andExpect(jsonPath("$[0].estado").value("PENDIENTE"));
+    }
+
+    @Test
+    void sesiones_webYMovilFuncionanALaVezYSeAvisaDelNuevoInicio() throws Exception {
+        ClienteDePrueba cliente = registrarClienteConSaldo("10.00");
+        String tokenWeb = cliente.token();
+        String tokenMovil = iniciarSesion(correoDelUltimoCliente(), "MOVIL");
+
+        verify(mailService).enviarAlertaInicioSesion(eq(correoDelUltimoCliente()), eq("MOVIL"), any());
+        mockMvc.perform(get("/compras").header("Authorization", "Bearer " + tokenWeb)).andExpect(status().isOk());
+        mockMvc.perform(get("/compras").header("Authorization", "Bearer " + tokenMovil)).andExpect(status().isOk());
+
+        mockMvc.perform(get("/login/sesiones").header("Authorization", "Bearer " + tokenWeb))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[?(@.dispositivo == 'WEB')].actual").value(true))
+                .andExpect(jsonPath("$[?(@.dispositivo == 'MOVIL')].actual").value(false));
+    }
+
+    @Test
+    void sesiones_cerrarLaMovilNoCierraLaWeb() throws Exception {
+        ClienteDePrueba cliente = registrarClienteConSaldo("10.00");
+        String tokenMovil = iniciarSesion(correoDelUltimoCliente(), "MOVIL");
+        Integer clienteId = cuentaRepository.findById(cliente.cuentaId()).orElseThrow().getCliente().getId();
+
+        mockMvc.perform(post("/login/" + clienteId + "/cerrar").header("Authorization", "Bearer " + tokenMovil))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/compras").header("Authorization", "Bearer " + tokenMovil))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/compras").header("Authorization", "Bearer " + cliente.token()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void sesiones_volverAEntrarEnElMismoDispositivoInvalidaElTokenAnterior() throws Exception {
+        ClienteDePrueba cliente = registrarClienteConSaldo("10.00");
+        String tokenWebNuevo = iniciarSesion(correoDelUltimoCliente(), "WEB");
+
+        mockMvc.perform(get("/compras").header("Authorization", "Bearer " + cliente.token()))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/compras").header("Authorization", "Bearer " + tokenWebNuevo))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void login_conDispositivoDesconocido_responde400() throws Exception {
+        mockMvc.perform(post("/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"correoElectronico\":\"a@correo.com\",\"password\":\"x\",\"dispositivo\":\"TABLET\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deposito_sumaAlSaldoDeLaCuentaPropiaYRechazaCuentasAjenas() throws Exception {
+        ClienteDePrueba cliente = registrarClienteConSaldo("100.00");
+        ClienteDePrueba otro = registrarClienteConSaldo("100.00");
+        String cuerpo = "{\"numeroCuenta\":\"" + cliente.numeroCuenta() + "\",\"monto\":250.50}";
+
+        mockMvc.perform(post("/cuentas/depositos").header("Authorization", "Bearer " + cliente.token())
+                        .contentType(MediaType.APPLICATION_JSON).content(cuerpo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.saldoActual").value(350.50));
+        assertThat(saldoActual(cliente.cuentaId())).isEqualByComparingTo("350.50");
+
+        mockMvc.perform(post("/cuentas/depositos").header("Authorization", "Bearer " + otro.token())
+                        .contentType(MediaType.APPLICATION_JSON).content(cuerpo))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/cuentas/depositos").header("Authorization", "Bearer " + cliente.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"numeroCuenta\":\"" + cliente.numeroCuenta() + "\",\"monto\":0}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void verificarReferencia_respondeSegunLoQueDiceGestoPago() throws Exception {
+        ClienteDePrueba cliente = registrarClienteConSaldo("10.00");
+        if (productoRepository.findByIdProducto(272).isEmpty()) {
+            GestoPagoProducto pago = new GestoPagoProducto();
+            pago.setIdProducto(272);
+            pago.setIdServicio(108);
+            pago.setTipoFront(2);
+            pago.setProducto("Pago de Recibo AT-T");
+            pago.setServicio("AT-T");
+            productoRepository.save(pago);
+            GestoPagoProducto consulta = new GestoPagoProducto();
+            consulta.setIdProducto(398);
+            consulta.setIdServicio(108);
+            consulta.setTipoFront(4);
+            consulta.setProducto("Consulta de Saldo");
+            consulta.setServicio("AT-T");
+            productoRepository.save(consulta);
+        }
+        MensajeExternoDTO valida = new MensajeExternoDTO();
+        valida.setCodigo("01");
+        valida.setTexto("Referencia Valida");
+        valida.setSaldo("1034.5");
+        GestoPagoSenTxResponse respuestaValida = new GestoPagoSenTxResponse();
+        respuestaValida.setMensaje(valida);
+        when(senTxClient.verifyReference(any())).thenReturn(respuestaValida);
+
+        mockMvc.perform(post("/compras/verificar-referencia").header("Authorization", "Bearer " + cliente.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idProducto\":272,\"referencia\":\"5610440665\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("VALIDA"))
+                .andExpect(jsonPath("$.saldoPendiente").value(1034.5));
+
+        when(senTxClient.verifyReference(any())).thenReturn(respuestaGestoPago("02", "Referencia Invalida"));
+        mockMvc.perform(post("/compras/verificar-referencia").header("Authorization", "Bearer " + cliente.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idProducto\":272,\"referencia\":\"000000000\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("INVALIDA"))
+                .andExpect(jsonPath("$.mensaje").value("Referencia Invalida"));
+
+        mockMvc.perform(post("/compras/verificar-referencia").header("Authorization", "Bearer " + cliente.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idProducto\":272,\"referencia\":\"con espacios!\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/compras/verificar-referencia")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idProducto\":272,\"referencia\":\"5610440665\"}"))
+                .andExpect(status().isUnauthorized());
     }
 }

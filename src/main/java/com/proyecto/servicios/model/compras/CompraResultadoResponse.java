@@ -16,4 +16,7 @@ public class CompraResultadoResponse {
     private String saldoRestante;
 
     private String mensaje;
+
+    /** Id del pago en el historial (GET /compras/{id}). */
+    private Integer pagoId;
 }
