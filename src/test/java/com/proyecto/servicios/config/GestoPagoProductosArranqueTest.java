@@ -2,6 +2,7 @@ package com.proyecto.servicios.config;
 
 import com.proyecto.servicios.repositorys.gestopago.GestoPagoProductoRepository;
 import com.proyecto.servicios.service.GestoPagoProductListSyncService;
+import com.proyecto.servicios.service.GestoPagoTokenService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,6 +21,9 @@ class GestoPagoProductosArranqueTest {
 
     @Mock
     private GestoPagoProductListSyncService syncService;
+
+    @Mock
+    private GestoPagoTokenService tokenService;
 
     @InjectMocks
     private GestoPagoProductosArranque arranque;

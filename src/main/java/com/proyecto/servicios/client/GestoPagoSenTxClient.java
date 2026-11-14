@@ -23,4 +23,14 @@ public interface GestoPagoSenTxClient {
             consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
             produces = MediaType.APPLICATION_XML_VALUE)
     GestoPagoSenTxResponse confirmTx(@RequestBody org.springframework.util.MultiValueMap<String, String> form);
+
+    /**
+     * Valida una referencia antes de pagar. Mismo formato (random + signed
+     * cifrado) y misma forma de respuesta que sendTx: MENSAJE con CODIGO 01
+     * "Referencia Valida" (+ SALDO adeudado) o CODIGO distinto si no lo es.
+     */
+    @PostMapping(value = "/sistema/service/verifyReference.do",
+            consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
+            produces = MediaType.APPLICATION_XML_VALUE)
+    GestoPagoSenTxResponse verifyReference(@RequestBody org.springframework.util.MultiValueMap<String, String> form);
 }

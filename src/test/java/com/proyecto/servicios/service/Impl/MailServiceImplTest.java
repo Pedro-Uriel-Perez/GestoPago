@@ -35,4 +35,30 @@ class MailServiceImplTest {
         assertThat(mensaje.getValue().getSubject()).isEqualTo("Codigo de verificacion GestoPago");
         assertThat(mensaje.getValue().getText()).contains("123456").contains("5 minutos");
     }
+
+    @Test
+    void enviarAlertaInicioSesion_avisaDesdeQueDispositivoYCuando() {
+        ReflectionTestUtils.setField(mailService, "remitente", "remitente@correo.com");
+
+        mailService.enviarAlertaInicioSesion("cliente@correo.com", "MOVIL",
+                java.time.LocalDateTime.of(2026, 11, 13, 10, 42));
+
+        ArgumentCaptor<SimpleMailMessage> mensaje = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(mensaje.capture());
+        assertThat(mensaje.getValue().getTo()).containsExactly("cliente@correo.com");
+        assertThat(mensaje.getValue().getSubject()).isEqualTo("Nuevo inicio de sesion en tu cuenta GestoPago");
+        assertThat(mensaje.getValue().getText()).contains("la aplicacion movil").contains("13/11/2026 a las 10:42");
+    }
+
+    @Test
+    void enviarAlertaInicioSesion_desdeWeb_mencionaLaPlataformaWeb() {
+        ReflectionTestUtils.setField(mailService, "remitente", "remitente@correo.com");
+
+        mailService.enviarAlertaInicioSesion("cliente@correo.com", "WEB",
+                java.time.LocalDateTime.of(2026, 11, 13, 10, 42));
+
+        ArgumentCaptor<SimpleMailMessage> mensaje = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(mensaje.capture());
+        assertThat(mensaje.getValue().getText()).contains("la plataforma web");
+    }
 }

@@ -10,7 +10,10 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * Tabla de seguridad/sesion del cliente (1:1). correoLogin, nombreCifrado,
+ * Tabla de credenciales del cliente (1:1). Las sesiones activas ya no viven
+ * aqui sino en la tabla sesiones (una por dispositivo, ver Sesion); las
+ * columnas jwt_token/sesion_activa/fecha_ultimo_acceso se conservan solo por
+ * compatibilidad con el esquema original. correoLogin, nombreCifrado,
  * jwtToken y datosBiometricos se cifran con AES (ver paquete security) antes
  * de guardarse. sesionActiva y fechaUltimoAcceso quedan sin cifrar a
  * proposito: la tarea programada que cierra sesiones inactivas necesita

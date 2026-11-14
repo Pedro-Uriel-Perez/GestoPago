@@ -1,5 +1,5 @@
 -- Esquema consolidado SOLO para pruebas de integracion sobre H2.
--- Refleja el estado final de src/main/resources/db/migration (V1..V12),
+-- Refleja el estado final de src/main/resources/db/migration (V1..V14),
 -- pero sin la sintaxis exclusiva de PostgreSQL que H2 no soporta
 -- (ON CONFLICT, UPDATE ... FROM, ALTER TABLE con varias acciones, el
 -- operador de regex ~). Si se agrega una migracion real que cambie
@@ -132,4 +132,39 @@ CREATE TABLE conciliaciones_pendientes (
     resuelta       BOOLEAN       NOT NULL DEFAULT FALSE,
     observaciones  TEXT,
     CONSTRAINT fk_conciliaciones_cuenta FOREIGN KEY (cuenta_id) REFERENCES cuentas (id)
+);
+
+CREATE TABLE sesiones (
+    id                  SERIAL PRIMARY KEY,
+    cliente_id          INTEGER     NOT NULL,
+    identificador       VARCHAR(36) NOT NULL,
+    dispositivo         VARCHAR(10) NOT NULL,
+    jwt_token           TEXT,
+    activa              BOOLEAN     NOT NULL DEFAULT TRUE,
+    fecha_inicio        TIMESTAMP   NOT NULL DEFAULT NOW(),
+    fecha_ultimo_acceso TIMESTAMP   NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_sesiones_identificador UNIQUE (identificador),
+    CONSTRAINT fk_sesiones_cliente FOREIGN KEY (cliente_id) REFERENCES clientes (id)
+);
+
+CREATE TABLE pagos (
+    id                  SERIAL PRIMARY KEY,
+    cliente_id          INTEGER       NOT NULL,
+    cuenta_id           INTEGER       NOT NULL,
+    operacion_id        VARCHAR(36)   NOT NULL,
+    id_producto         INTEGER       NOT NULL,
+    id_servicio         INTEGER,
+    nombre_producto     TEXT,
+    nombre_servicio     TEXT,
+    telefono            TEXT,
+    referencia          TEXT,
+    monto               NUMERIC(15,2) NOT NULL,
+    estado              VARCHAR(10)   NOT NULL,
+    id_transaccion      TEXT,
+    numero_autorizacion TEXT,
+    codigo_respuesta    TEXT,
+    mensaje             TEXT,
+    fecha               TIMESTAMP     NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_pagos_operacion UNIQUE (operacion_id),
+    CONSTRAINT fk_pagos_cuenta FOREIGN KEY (cuenta_id) REFERENCES cuentas (id)
 );

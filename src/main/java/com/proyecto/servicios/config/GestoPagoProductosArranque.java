@@ -2,6 +2,7 @@ package com.proyecto.servicios.config;
 
 import com.proyecto.servicios.repositorys.gestopago.GestoPagoProductoRepository;
 import com.proyecto.servicios.service.GestoPagoProductListSyncService;
+import com.proyecto.servicios.service.GestoPagoTokenService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -32,11 +33,14 @@ public class GestoPagoProductosArranque implements ApplicationRunner {
 
     private final GestoPagoProductoRepository productoRepository;
     private final GestoPagoProductListSyncService syncService;
+    private final GestoPagoTokenService tokenService;
 
     public GestoPagoProductosArranque(GestoPagoProductoRepository productoRepository,
-                                       GestoPagoProductListSyncService syncService) {
+                                       GestoPagoProductListSyncService syncService,
+                                       GestoPagoTokenService tokenService) {
         this.productoRepository = productoRepository;
         this.syncService = syncService;
+        this.tokenService = tokenService;
     }
 
     @Override
@@ -45,6 +49,11 @@ public class GestoPagoProductosArranque implements ApplicationRunner {
                 .filter(total -> total == 0)
                 .ifPresent(total -> {
                     log.info("Catalogo de productos vacio al arrancar, sincronizando una vez con GestoPago");
+                    // En una base de datos nueva tampoco hay token guardado y
+                    // la tarea programada que lo obtiene corre en otro hilo:
+                    // sin esto la sincronizacion se adelantaba al token y
+                    // fallaba, dejando el catalogo vacio.
+                    tokenService.renovarToken();
                     syncService.sincronizarProductos();
                 });
     }

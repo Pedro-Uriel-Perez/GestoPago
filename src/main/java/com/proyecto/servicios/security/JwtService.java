@@ -19,13 +19,15 @@ import java.time.Instant;
 @Service
 public class JwtService {
 
+    private static final String CLAIM_SESION = "sid";
+
     @Value("${security.jwt.secret-key}")
     private String secretKey;
 
     @Value("${security.jwt.expiration-ms}")
     private long expiracionMs;
 
-    public String generarToken(Integer clienteId, String correoElectronico) {
+    public String generarToken(Integer clienteId, String correoElectronico, String sesionId) {
         Instant ahora = Instant.now();
         Instant expiracion = ahora.plusMillis(expiracionMs);
 
@@ -35,10 +37,19 @@ public class JwtService {
         return Jwts.builder()
                 .setSubject(String.valueOf(clienteId))
                 .claim("correo", correoElectronico)
+                .claim(CLAIM_SESION, sesionId)
                 .claim(Claims.ISSUED_AT, ahora.getEpochSecond())
                 .claim(Claims.EXPIRATION, expiracion.getEpochSecond())
                 .signWith(obtenerLlaveFirma(), SignatureAlgorithm.HS256)
                 .compact();
+    }
+
+    /**
+     * Identificador de la sesion (sesiones.identificador) con la que se
+     * emitio el token; distingue la sesion web de la movil del mismo cliente.
+     */
+    public String obtenerSesionId(String token) {
+        return parsearClaims(token).get(CLAIM_SESION, String.class);
     }
 
     public Integer obtenerClienteId(String token) {

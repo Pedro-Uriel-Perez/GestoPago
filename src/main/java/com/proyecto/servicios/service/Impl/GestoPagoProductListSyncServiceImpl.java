@@ -52,7 +52,7 @@ public class GestoPagoProductListSyncServiceImpl implements GestoPagoProductList
     @Override
     @Scheduled(cron = "${gestopago.productos.sync-cron:0 0 3 * * *}")
     @Transactional
-    @CacheEvict(cacheNames = "productos", allEntries = true)
+    @CacheEvict(cacheNames = "catalogo", allEntries = true)
     public void sincronizarProductos() {
         log.info("Iniciando sincronizacion del catalogo de productos GestoPago");
         try {

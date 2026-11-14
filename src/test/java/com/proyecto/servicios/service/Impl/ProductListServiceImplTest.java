@@ -1,6 +1,7 @@
 package com.proyecto.servicios.service.Impl;
 
 import com.proyecto.servicios.entity.gestopago.GestoPagoProducto;
+import com.proyecto.servicios.config.GestoPagoCatalogo;
 import com.proyecto.servicios.mapper.ProductoMapper;
 import com.proyecto.servicios.model.productlist.ProductoResponse;
 import com.proyecto.servicios.repositorys.gestopago.GestoPagoProductoRepository;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
@@ -23,6 +25,9 @@ class ProductListServiceImplTest {
 
     @Mock
     private ProductoMapper productoMapper;
+
+    @Spy
+    private GestoPagoCatalogo catalogo = new GestoPagoCatalogo("https://imagenes.test");
 
     @InjectMocks
     private ProductListServiceImpl productListService;

@@ -1,0 +1,96 @@
+# Plataforma de pagos (web + móvil): servicios del backend
+
+Este documento describe lo que el backend expone para que la plataforma web y
+la app móvil (Flutter) ofrezcan las mismas funciones con las mismas
+credenciales. El flujo de pago en dos pasos (PIN por correo, `sendTx`,
+conciliación con `confirmTx`) se explica en `compras-gestopago.md`.
+
+## 1. Sesiones por dispositivo
+
+Un cliente puede tener **una sesión activa por dispositivo** (`WEB` y `MOVIL`)
+al mismo tiempo. Las sesiones viven en la tabla `sesiones` (migración V13).
+
+| Endpoint | Descripción |
+|---|---|
+| `POST /login` | Body: `correoElectronico`, `password`, `dispositivo` (`WEB` o `MOVIL`, opcional; por defecto `WEB`). Regresa `{ "jwt": "..." }`. |
+| `GET /login/sesiones` | Sesiones activas del cliente autenticado: `dispositivo`, `fechaInicio`, `fechaUltimoAcceso`, `actual`. |
+| `POST /login/{clienteId}/cerrar` | Cierra **solo** la sesión del dispositivo que hace la petición. |
+
+Reglas:
+
+- Iniciar sesión en un dispositivo **no** cierra la sesión del otro. Volver a
+  iniciar sesión en el mismo tipo de dispositivo sí reemplaza la anterior.
+- El JWT lleva el claim `sid` (identificador de la sesión). En cada petición,
+  `JwtAuthenticationFilter` exige que esa sesión siga activa y que el token
+  coincida con el guardado (cifrado con AES).
+- **Alerta de nuevo inicio de sesión:** si al iniciar sesión el cliente ya
+  tenía otra sesión abierta, se le envía un correo de aviso. Además, cada app
+  consulta `GET /login/sesiones` y muestra un aviso cuando aparece una sesión
+  de otro dispositivo. Si el correo falla, el inicio de sesión no se bloquea.
+- **Inactividad:** cada petición autenticada cuenta como actividad. Una sesión
+  sin actividad durante `security.session.inactividad-minutos` (5) se cierra.
+
+## 2. Catálogo
+
+`GET /productos` regresa el catálogo sincronizado desde `getProductList.do`
+(nunca datos fijos). Cada producto incluye además:
+
+| Campo | Origen |
+|---|---|
+| `categoria` | Nombre de la tabla `idCatTipoServicio` de la especificación de GestoPago. |
+| `logoUrl` | Logotipo público del proveedor: `/sistema/images/gestopago/servicios/{idServicio}.png`. |
+| `imagenReferenciaUrl` | Imagen de ayuda de la referencia: `/sistema/images/gestopago/referencias/{idServicio}.jpg`. |
+| `permiteValidarReferencia` | `true` si el servicio tiene un producto de consulta (`tipoFront` 4). |
+
+Tipos de producto (`tipoFront`): 1 = recarga (pide teléfono), 2 = pago de
+servicio (pide referencia y monto), 4 = consulta de saldo/referencia.
+
+## 3. Validación de referencias
+
+`POST /compras/verificar-referencia` — body: `idProducto`, `referencia`
+(alfanumérica, máximo 60 caracteres).
+
+El backend llama a `verifyReference.do` de GestoPago con el producto de
+consulta (`tipoFront` 4) del mismo servicio y responde:
+
+| `estado` | Significado |
+|---|---|
+| `VALIDA` | GestoPago respondió código `01`. `saldoPendiente` trae el adeudo si lo informa. |
+| `INVALIDA` | GestoPago respondió otro código. `mensaje` trae su texto. |
+| `NO_VERIFICABLE` | GestoPago no ofrece consulta en línea para ese servicio. |
+
+Con `gestopago.referencias.exigir-validacion=true` (por defecto), `POST
+/compras` rechaza con 400 un pago de servicio cuya referencia sea `INVALIDA`.
+
+## 4. Historial de pagos
+
+Cada pago confirmado con PIN se guarda en la tabla `pagos` (migración V14) con
+su resultado.
+
+| Endpoint | Descripción |
+|---|---|
+| `GET /compras` | Pagos del cliente autenticado, del más reciente al más antiguo. |
+| `GET /compras/{pagoId}` | Detalle de un pago propio. 404 si no existe o es de otro cliente. |
+
+Campos: `nombreServicio`, `nombreProducto`, `logoUrl`, `fecha`, `referencia`,
+`telefono`, `monto`, `idTransaccion` (folio), `numeroAutorizacion`, `estado`,
+`mensaje`.
+
+| `estado` | Cuándo |
+|---|---|
+| `EXITOSO` | GestoPago confirmó la operación (código `01`). |
+| `RECHAZADO` | GestoPago respondió con un rechazo. |
+| `PENDIENTE` | No se pudo confirmar el resultado (timeout en `sendTx` y en `confirmTx`). |
+
+## 5. Depósitos
+
+`POST /cuentas/depositos` — body: `numeroCuenta`, `monto` (0.01 a 50,000.00).
+Abona saldo a la cuenta del cliente autenticado (movimiento `DEPOSITO`) y
+regresa la cuenta con su saldo actualizado. 403 si la cuenta es de otro cliente.
+
+## 6. Variables de entorno nuevas
+
+| Variable | Uso | Valor por defecto |
+|---|---|---|
+| `CORS_ORIGENES` | Orígenes web que pueden llamar a la API. | `localhost` y `*.onrender.com` |
+| `GESTOPAGO_EXIGIR_VALIDACION_REFERENCIA` | Bloquear pagos con referencia inválida. | `true` |

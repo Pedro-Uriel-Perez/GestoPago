@@ -37,4 +37,19 @@ public class ProductoResponse {
     private String descripcion;
 
     private LocalDateTime fechaActualizacion;
+
+    /** Nombre de la categoria segun la tabla idCatTipoServicio de GestoPago. */
+    private String categoria;
+
+    /** URL del logotipo del proveedor (getServiceLogo). */
+    private String logoUrl;
+
+    /** URL de la imagen de ayuda de la referencia (getReferenceImage). */
+    private String imagenReferenciaUrl;
+
+    /**
+     * true si GestoPago ofrece consulta en linea (verifyReference.do) para
+     * este servicio, es decir, si la referencia se puede validar antes de pagar.
+     */
+    private Boolean permiteValidarReferencia;
 }

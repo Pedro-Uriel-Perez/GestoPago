@@ -20,6 +20,10 @@ public interface ProductoMapper {
     @Mapping(target = "nombreProducto", source = "producto")
     @Mapping(target = "nombreServicio", source = "servicio")
     @Mapping(target = "descripcion", source = "legend")
+    @Mapping(target = "categoria", ignore = true)
+    @Mapping(target = "logoUrl", ignore = true)
+    @Mapping(target = "imagenReferenciaUrl", ignore = true)
+    @Mapping(target = "permiteValidarReferencia", ignore = true)
     ProductoResponse toResponse(GestoPagoProducto entidad);
 
     List<ProductoResponse> toResponseList(List<GestoPagoProducto> entidades);
