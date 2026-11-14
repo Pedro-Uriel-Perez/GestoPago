@@ -89,7 +89,19 @@ Campos: `nombreServicio`, `nombreProducto`, `logoUrl`, `fecha`, `referencia`,
 Abona saldo a la cuenta del cliente autenticado (movimiento `DEPOSITO`) y
 regresa la cuenta con su saldo actualizado. 403 si la cuenta es de otro cliente.
 
-## 6. Variables de entorno nuevas
+## 6. Requisitos de la especificación de GestoPago
+
+- **Un token por día.** La especificación pide no sacar un token por cada
+  petición. El token se guarda en `gestopago_tokens` y se reutiliza mientras
+  tenga menos de `gestopago.auth.vigencia-horas` (23); el servidor solo pide
+  otro cuando el guardado ya va a vencer, también después de un reinicio.
+- **Log evidence.** Cada llamada a `sendTx`, `confirmTx` y `verifyReference`
+  queda en la tabla `gestopago_bitacora` (migración V15): operación, UPC,
+  payload en claro (antes de cifrarlo, sin token ni llaves), respuesta,
+  código, error si no hubo respuesta y duración. Se guarda en una
+  transacción aparte para que quede aunque la operación falle.
+
+## 7. Variables de entorno nuevas
 
 | Variable | Uso | Valor por defecto |
 |---|---|---|

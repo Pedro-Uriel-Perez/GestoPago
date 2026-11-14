@@ -78,6 +78,9 @@ class CompraServiceImplTest {
     private PagoRepository pagoRepository;
 
     @Mock
+    private EvidenciaGestoPago bitacora;
+
+    @Mock
     private GestoPagoSenTxClient senTxClient;
 
     @Mock
@@ -100,7 +103,9 @@ class CompraServiceImplTest {
     void setUp() {
         compraService = new CompraServiceImpl(cuentaRepository, saldoRepository, productoRepository,
                 conciliacionRepository, pagoRepository, new GestoPagoCatalogo("https://imagenes.test"),
-                senTxClient, cipher, mailService, redisTemplate, objectMapper);
+                bitacora, senTxClient, cipher, mailService, redisTemplate, objectMapper);
+        lenient().when(bitacora.registrar(anyString(), any(), any(), any())).thenAnswer(inv ->
+                inv.<java.util.function.Supplier<GestoPagoSenTxResponse>>getArgument(3).get());
         ReflectionTestUtils.setField(compraService, "unidad", "083");
         ReflectionTestUtils.setField(compraService, "exigirValidacionDeReferencia", true);
         lenient().when(pagoRepository.save(any(Pago.class))).thenAnswer(inv -> {

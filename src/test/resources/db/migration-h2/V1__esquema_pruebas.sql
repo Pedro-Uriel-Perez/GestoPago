@@ -1,5 +1,5 @@
 -- Esquema consolidado SOLO para pruebas de integracion sobre H2.
--- Refleja el estado final de src/main/resources/db/migration (V1..V14),
+-- Refleja el estado final de src/main/resources/db/migration (V1..V15),
 -- pero sin la sintaxis exclusiva de PostgreSQL que H2 no soporta
 -- (ON CONFLICT, UPDATE ... FROM, ALTER TABLE con varias acciones, el
 -- operador de regex ~). Si se agrega una migracion real que cambie
@@ -167,4 +167,16 @@ CREATE TABLE pagos (
     fecha               TIMESTAMP     NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_pagos_operacion UNIQUE (operacion_id),
     CONSTRAINT fk_pagos_cuenta FOREIGN KEY (cuenta_id) REFERENCES cuentas (id)
+);
+
+CREATE TABLE gestopago_bitacora (
+    id          SERIAL PRIMARY KEY,
+    operacion   VARCHAR(30) NOT NULL,
+    upc         VARCHAR(40),
+    peticion    TEXT,
+    respuesta   TEXT,
+    codigo      VARCHAR(10),
+    error       TEXT,
+    duracion_ms BIGINT,
+    fecha       TIMESTAMP   NOT NULL DEFAULT NOW()
 );

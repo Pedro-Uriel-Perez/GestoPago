@@ -1,6 +1,7 @@
 package com.proyecto.servicios.service.Impl;
 
 import com.proyecto.servicios.client.GestoPagoAuthClient;
+import com.proyecto.servicios.config.ZonaHoraria;
 import com.proyecto.servicios.entity.gestopago.GestoPagoToken;
 import com.proyecto.servicios.mapper.GestoPagoTokenMapper;
 import com.proyecto.servicios.model.gestopago.GestoPagoAuthResponse;
@@ -14,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,6 +48,40 @@ class GestoPagoTokenServiceImplTest {
         ReflectionTestUtils.setField(tokenService, "idDistribuidor", ID_DISTRIBUIDOR);
         ReflectionTestUtils.setField(tokenService, "codigoDispositivo", CODIGO_DISPOSITIVO);
         ReflectionTestUtils.setField(tokenService, "password", "clave-de-prueba");
+        ReflectionTestUtils.setField(tokenService, "vigenciaHoras", 23L);
+    }
+
+    private GestoPagoToken tokenGuardadoHace(long horas) {
+        GestoPagoToken token = new GestoPagoToken();
+        token.setId(1);
+        token.setToken("token-del-dia");
+        token.setFechaActualizacion(LocalDateTime.now(ZonaHoraria.MEXICO).minusHours(horas));
+        return token;
+    }
+
+    @Test
+    void renovarToken_conTokenDelDiaVigente_loReutilizaSinPedirOtroAGestoPago() {
+        when(tokenRepository.findByIdDistribuidorAndCodigoDispositivo(ID_DISTRIBUIDOR, CODIGO_DISPOSITIVO))
+                .thenReturn(Optional.of(tokenGuardadoHace(5)));
+
+        tokenService.renovarToken();
+
+        verify(authClient, never()).authenticate(any(), any(), any());
+        verify(tokenRepository, never()).save(any());
+    }
+
+    @Test
+    void renovarToken_conTokenDeMasDe23Horas_pideUnoNuevo() {
+        GestoPagoToken viejo = tokenGuardadoHace(24);
+        GestoPagoAuthResponse respuesta = respuestaConToken("token-nuevo");
+        when(tokenRepository.findByIdDistribuidorAndCodigoDispositivo(ID_DISTRIBUIDOR, CODIGO_DISPOSITIVO))
+                .thenReturn(Optional.of(viejo));
+        when(authClient.authenticate(ID_DISTRIBUIDOR, CODIGO_DISPOSITIVO, "clave-de-prueba")).thenReturn(respuesta);
+
+        tokenService.renovarToken();
+
+        verify(tokenMapper).updateEntity(respuesta, viejo);
+        verify(tokenRepository).save(viejo);
     }
 
     private GestoPagoAuthResponse respuestaConToken(String token) {

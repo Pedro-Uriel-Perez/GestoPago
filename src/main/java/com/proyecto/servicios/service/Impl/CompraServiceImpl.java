@@ -69,6 +69,7 @@ public class CompraServiceImpl implements CompraService {
     private final ConciliacionPendienteRepository conciliacionRepository;
     private final PagoRepository pagoRepository;
     private final GestoPagoCatalogo catalogo;
+    private final EvidenciaGestoPago bitacora;
     private final GestoPagoSenTxClient senTxClient;
     private final GestoPagoAesCipher cipher;
     private final MailService mailService;
@@ -88,6 +89,7 @@ public class CompraServiceImpl implements CompraService {
                               ConciliacionPendienteRepository conciliacionRepository,
                               PagoRepository pagoRepository,
                               GestoPagoCatalogo catalogo,
+                              EvidenciaGestoPago bitacora,
                               GestoPagoSenTxClient senTxClient,
                               GestoPagoAesCipher cipher,
                               MailService mailService,
@@ -99,6 +101,7 @@ public class CompraServiceImpl implements CompraService {
         this.conciliacionRepository = conciliacionRepository;
         this.pagoRepository = pagoRepository;
         this.catalogo = catalogo;
+        this.bitacora = bitacora;
         this.senTxClient = senTxClient;
         this.cipher = cipher;
         this.mailService = mailService;
@@ -275,7 +278,8 @@ public class CompraServiceImpl implements CompraService {
     private GestoPagoSenTxResponse ejecutarSendTxConConciliacion(String operacionId, CompraPendiente pendiente) {
         MultiValueMap<String, String> form = construirFormularioCifrado(pendiente);
         try {
-            return senTxClient.sendTx(form);
+            return bitacora.registrar("sendTx", pendiente.getUpc(), payloadEnClaro(pendiente),
+                    () -> senTxClient.sendTx(form));
         } catch (RetryableException e) {
             log.error("sendTx no respondio a tiempo, no se puede asumir que la transaccion no se proceso. "
                     + "Consultando confirmTx. upc={}", pendiente.getUpc(), e);
@@ -291,7 +295,8 @@ public class CompraServiceImpl implements CompraService {
     private GestoPagoSenTxResponse consultarConfirmTx(String operacionId, CompraPendiente pendiente,
                                                       MultiValueMap<String, String> form) {
         try {
-            return senTxClient.confirmTx(form);
+            return bitacora.registrar("confirmTx", pendiente.getUpc(), payloadEnClaro(pendiente),
+                    () -> senTxClient.confirmTx(form));
         } catch (Exception e) {
             log.error("confirmTx tampoco permitio determinar el estado real de la transaccion. "
                     + "Se registra para conciliacion manual, no se reintenta solo. upc={}, idProducto={}",
@@ -376,11 +381,13 @@ public class CompraServiceImpl implements CompraService {
         payload.put("idServicio", producto.getIdServicio());
         payload.put("referencia", referencia);
 
+        String payloadJson = escribirJson(payload);
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("random", String.valueOf(System.currentTimeMillis()));
-        form.add("signed", cipher.encriptar(escribirJson(payload)));
+        form.add("signed", cipher.encriptar(payloadJson));
 
-        GestoPagoSenTxResponse respuesta = senTxClient.verifyReference(form);
+        GestoPagoSenTxResponse respuesta = bitacora.registrar("verifyReference", null, payloadJson,
+                () -> senTxClient.verifyReference(form));
         String texto = respuesta.getMensaje() != null ? respuesta.getMensaje().getTexto() : null;
         log.info("Referencia verificada con GestoPago. idProducto={}, idServicio={}, codigo={}",
                 producto.getIdProducto(), producto.getIdServicio(),
@@ -459,8 +466,13 @@ public class CompraServiceImpl implements CompraService {
         return Integer.valueOf(TIPO_FRONT_PAGO_SERVICIO).equals(producto.getTipoFront());
     }
 
-    private MultiValueMap<String, String> construirFormularioCifrado(CompraPendiente pendiente) {
-        GestoPagoSenTxRequest payload = GestoPagoSenTxRequest.builder()
+    /** El mismo JSON que se cifra y se manda a GestoPago, para la bitacora. */
+    private String payloadEnClaro(CompraPendiente pendiente) {
+        return escribirJson(payloadDe(pendiente));
+    }
+
+    private GestoPagoSenTxRequest payloadDe(CompraPendiente pendiente) {
+        return GestoPagoSenTxRequest.builder()
                 .idProducto(pendiente.getIdProducto())
                 .idServicio(pendiente.getIdServicio())
                 .telefono(pendiente.getTelefono())
@@ -470,8 +482,10 @@ public class CompraServiceImpl implements CompraService {
                 .upc(pendiente.getUpc())
                 .unidad(pendiente.getUnidad())
                 .build();
+    }
 
-        String signed = cipher.encriptar(escribirJson(payload));
+    private MultiValueMap<String, String> construirFormularioCifrado(CompraPendiente pendiente) {
+        String signed = cipher.encriptar(payloadEnClaro(pendiente));
 
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("random", String.valueOf(System.currentTimeMillis()));
