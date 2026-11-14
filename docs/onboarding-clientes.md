@@ -404,9 +404,9 @@ cuenta).
 {"codigo":404,"mensaje":"No existe una nacionalidad con id 999"}
 ```
 
-**15. `POST /clientes` con `nombre` de 2 letras ("Ca") → 400**
+**15. `POST /clientes` con `nombre` de 1 letra ("C") → 400** (el mínimo es 2 caracteres)
 ```
-{"codigo":400,"mensaje":"El nombre debe tener entre 3 y 50 caracteres"}
+{"codigo":1,"mensaje":"Datos no validos{nombre=El nombre debe tener entre 2 y 50 caracteres}"}
 ```
 
 **16. `POST /clientes` con `fechaNacimiento` mal formada ("1999-11/08") → 400, sin stack trace**
