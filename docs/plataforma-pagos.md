@@ -29,6 +29,7 @@ Reglas:
   de otro dispositivo. Si el correo falla, el inicio de sesión no se bloquea.
 - **Inactividad:** cada petición autenticada cuenta como actividad. Una sesión
   sin actividad durante `security.session.inactividad-minutos` (5) se cierra.
+  La consulta periódica a `GET /login/sesiones` no cuenta como actividad.
 
 ## 2. Catálogo
 

@@ -42,6 +42,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      */
     private static final long SEGUNDOS_ENTRE_REFRESCOS = 30;
 
+    /**
+     * Las apps consultan esta ruta cada pocos segundos, en segundo plano,
+     * para avisar de inicios de sesion en otro dispositivo. No es actividad
+     * del usuario: si contara, una app abierta y olvidada nunca se cerraria
+     * por inactividad.
+     */
+    private static final String RUTA_SIN_ACTIVIDAD = "/login/sesiones";
+
     private final JwtService jwtService;
     private final SesionRepository sesionRepository;
 
@@ -52,13 +60,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
 
         if (header != null && header.startsWith("Bearer ")) {
-            autenticarSiTokenValido(header.substring(7));
+            autenticarSiTokenValido(header.substring(7), !RUTA_SIN_ACTIVIDAD.equals(request.getRequestURI()));
         }
 
         filterChain.doFilter(request, response);
     }
 
-    private void autenticarSiTokenValido(String token) {
+    private void autenticarSiTokenValido(String token, boolean cuentaComoActividad) {
         try {
             Integer clienteId = jwtService.obtenerClienteId(token);
             String sesionId = jwtService.obtenerSesionId(token);
@@ -69,7 +77,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     .filter(Sesion::getActiva)
                     .filter(sesion -> token.equals(sesion.getJwtToken()))
                     .ifPresent(sesion -> {
-                        registrarActividad(sesion);
+                        if (cuentaComoActividad) {
+                            registrarActividad(sesion);
+                        }
                         UsernamePasswordAuthenticationToken autenticacion =
                                 new UsernamePasswordAuthenticationToken(clienteId, null, List.of());
                         autenticacion.setDetails(sesionId);

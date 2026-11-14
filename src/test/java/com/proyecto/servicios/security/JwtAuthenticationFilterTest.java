@@ -96,6 +96,20 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    void consultaDeSesionesEnSegundoPlano_autenticaPeroNoCuentaComoActividad() throws Exception {
+        Sesion sesion = sesion(TOKEN, true, LocalDateTime.of(2020, 1, 1, 0, 0));
+        tokenDeLaSesion(sesion);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/login/sesiones");
+        request.addHeader("Authorization", "Bearer " + TOKEN);
+
+        filtro.doFilter(request, new MockHttpServletResponse(), filterChain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication().getPrincipal()).isEqualTo(7);
+        assertThat(sesion.getFechaUltimoAcceso()).isEqualTo(LocalDateTime.of(2020, 1, 1, 0, 0));
+        verify(sesionRepository, never()).save(any());
+    }
+
+    @Test
     void sesionCerrada_noAutentica() throws Exception {
         tokenDeLaSesion(sesion(null, false, LocalDateTime.now()));
 
