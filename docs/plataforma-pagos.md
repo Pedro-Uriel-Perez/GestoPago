@@ -95,3 +95,12 @@ regresa la cuenta con su saldo actualizado. 403 si la cuenta es de otro cliente.
 |---|---|---|
 | `CORS_ORIGENES` | Orígenes web que pueden llamar a la API. | `localhost` y `*.onrender.com` |
 | `GESTOPAGO_EXIGIR_VALIDACION_REFERENCIA` | Bloquear pagos con referencia inválida. | `true` |
+| `MAIL_HOST` / `MAIL_PORT` | Servidor y puerto SMTP. | `smtp.gmail.com` / `587` |
+| `MAIL_FROM` | Dirección remitente de los correos. | el valor de `MAIL_USERNAME` |
+
+**Correo en Render:** el plan gratis de Render bloquea la salida a los puertos
+SMTP 25, 465 y 587, así que Gmail no funciona desde ahí. Hay que usar un
+proveedor SMTP que acepte el puerto 2525 y configurar `MAIL_HOST`,
+`MAIL_PORT=2525`, `MAIL_USERNAME`, `MAIL_PASSWORD` y `MAIL_FROM`. El envío
+tiene un límite de 10 segundos; la alerta de inicio de sesión se envía en
+segundo plano y nunca retrasa el login.

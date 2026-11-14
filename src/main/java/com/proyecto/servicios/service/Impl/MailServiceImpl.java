@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -19,7 +20,7 @@ public class MailServiceImpl implements MailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.username}")
+    @Value("${app.mail.remitente}")
     private String remitente;
 
     public MailServiceImpl(JavaMailSender mailSender) {
@@ -38,7 +39,13 @@ public class MailServiceImpl implements MailService {
         log.info("Codigo de verificacion enviado por correo");
     }
 
+    /**
+     * @Async: el aviso es informativo y no debe retrasar el inicio de
+     * sesion; se manda en otro hilo. Si el envio falla, Spring lo deja en el
+     * log y el cliente entra igual.
+     */
     @Override
+    @Async
     public void enviarAlertaInicioSesion(String destinatario, String dispositivo, LocalDateTime fechaHora) {
         String origen = "MOVIL".equals(dispositivo) ? "la aplicacion movil" : "la plataforma web";
         SimpleMailMessage mensaje = new SimpleMailMessage();
